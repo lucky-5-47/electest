@@ -44,10 +44,8 @@ body {
     border-radius: 6px;
     overflow: hidden;
     position: absolute;
-    top: 100%;
-    left: 0;
-    width: 100%;
-    z-index: 100;
+
+
 }
 
 .btli:hover .droplist {
@@ -413,4 +411,39 @@ body {
     stroke: #F57C00 !important;
     stroke-width: 2;
     r: 6;
+}
+
+
+
+/* Context Submenu Styles */
+.context-menu-item .context-submenu {
+    display: none;
+    position: absolute;
+    left: 100%;
+    top: -5px;
+    background-color: #fff;
+    border: 1px solid #ccc;
+    border-radius: 4px;
+    box-shadow: 2px 2px 5px rgba(0, 0, 0, 0.1);
+    padding: 5px;
+    z-index: 101;
+}
+
+.context-menu-item:hover .context-submenu {
+    display: block;
+}
+
+.context-submenu-item {
+    padding: 8px 12px;
+    cursor: pointer;
+    white-space: nowrap;
+}
+
+.context-submenu-item:hover {
+    background-color: #f0f0f0;
+}
+
+.context-submenu-item.active {
+    background-color: #e0e0e0;
+    font-weight: bold;
 }

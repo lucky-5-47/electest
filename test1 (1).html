@@ -10,8 +10,16 @@
     <script src="magnetic-snap.js"></script>
     <!-- 引入手势控制功能 -->
     <script src="gesture-control.js"></script>
+    <!-- 引入打开功能 -->
+    <script src="open.js"></script>
     <!-- 引入保存功能 -->
     <script src="save.js"></script>
+    <!-- 引入按钮元件 -->
+    <link rel="stylesheet" href="push-button.css">
+    <script src="push-button.js"></script>
+    <!-- 引入开关元件 -->
+    <link rel="stylesheet" href="switch.css">
+    <script src="switch.js"></script>
 </head>
 
 <body>
@@ -170,6 +178,8 @@
                         <li data-type="input">输入端口</li>
                         <li data-type="output">输出端口</li>
                         <li data-type="clock">时钟信号</li>
+                        <li data-type="push-button">按钮</li>
+                        <li data-type="switch">开关</li>
                     </ul>
                 </details>
             </div>
@@ -691,6 +701,14 @@
                 }
             };
 
+            // 初始化外部组件
+            if (typeof initializePushButtonComponent === 'function') {
+                initializePushButtonComponent(componentSvgs, logicFunctions);
+            }
+            if (typeof initializeSwitchComponent === 'function') {
+                initializeSwitchComponent(componentSvgs, logicFunctions);
+            }
+
             // 快捷工具栏事件处理
             toolbarItems.forEach(item => {
                 item.addEventListener('click', function() {
@@ -705,7 +723,7 @@
                         currentTool = 'text';
                         canvas.style.cursor = 'text';
                         console.log('文字工具已激活 - 点击画布添加文字');
-                    } else if (['input', 'output', 'and-gate', 'or-gate', 'not-gate', 'adder', 'subtractor', 'divider', 'complement'].includes(tool)) {
+                    } else if (['input', 'output', 'and-gate', 'or-gate', 'not-gate', 'adder', 'subtractor', 'divider', 'complement', 'push-button', 'switch'].includes(tool)) {
                         // 元件工具
                         this.classList.add('active');
                         currentTool = tool;
@@ -760,6 +778,20 @@
                         lastClock: 0
                     });
                     updateDFlipFlopDisplay(componentDiv, 0, 1);
+                } else if (type === 'push-button') {
+                    const id = componentDiv.dataset.id;
+                    componentStates.set(id, 0);
+                    // 设置默认配置为高电平触发
+                    if (typeof setButtonConfig === 'function') {
+                        setButtonConfig(id, { trigger: 'high' });
+                    }
+                } else if (type === 'switch') {
+                    const id = componentDiv.dataset.id;
+                    componentStates.set(id, 0);
+                    // 初始化开关状态
+                    if (typeof setSwitchState === 'function') {
+                        setSwitchState(id, 0);
+                    }
                 }
 
                 // 设置组件样式和提示
@@ -918,6 +950,113 @@
                         // 更新连线
                         updateWires();
                     });
+
+                    // 为按钮添加特殊的事件处理
+                    if (type === 'push-button') {
+                        const buttonGroup = componentDiv.querySelector('#push-button-group') || componentDiv;
+
+                        // 按下事件
+                        buttonGroup.addEventListener('mousedown', function(e) {
+                            if (e.target.classList.contains('anchor')) return;
+                            e.preventDefault();
+
+                            const id = componentDiv.dataset.id;
+                            const config = typeof getButtonConfig === 'function' ? getButtonConfig(id) : { trigger: 'high' };
+
+                            // 更新视觉状态
+                            if (typeof updatePushButtonDisplay === 'function') {
+                                updatePushButtonDisplay(componentDiv, 1);
+                            }
+
+                            // 根据触发模式处理输出
+                            switch(config.trigger) {
+                                case 'rising':
+                                    // 上升沿：按下瞬间输出1，然后立即回到0
+                                    componentStates.set(id, 1);
+                                    propagateSignal(componentDiv);
+                                    setTimeout(() => {
+                                        componentStates.set(id, 0);
+                                        propagateSignal(componentDiv);
+                                    }, 50);
+                                    break;
+                                case 'high':
+                                    // 高电平：按下时持续输出1
+                                    componentStates.set(id, 1);
+                                    propagateSignal(componentDiv);
+                                    break;
+                                case 'low':
+                                    // 低电平：按下时输出0
+                                    componentStates.set(id, 0);
+                                    propagateSignal(componentDiv);
+                                    break;
+                            }
+                        });
+
+                        // 松开事件
+                        document.addEventListener('mouseup', function(e) {
+                            if (!componentDiv.contains(e.target) && e.target !== componentDiv) return;
+
+                            const id = componentDiv.dataset.id;
+                            const config = typeof getButtonConfig === 'function' ? getButtonConfig(id) : { trigger: 'high' };
+
+                            // 更新视觉状态
+                            if (typeof updatePushButtonDisplay === 'function') {
+                                updatePushButtonDisplay(componentDiv, 0);
+                            }
+
+                            // 根据触发模式处理输出
+                            switch(config.trigger) {
+                                case 'falling':
+                                    // 下降沿：释放瞬间输出1，然后立即回到0
+                                    componentStates.set(id, 1);
+                                    propagateSignal(componentDiv);
+                                    setTimeout(() => {
+                                        componentStates.set(id, 0);
+                                        propagateSignal(componentDiv);
+                                    }, 50);
+                                    break;
+                                case 'high':
+                                    // 高电平：释放时回到0
+                                    componentStates.set(id, 0);
+                                    propagateSignal(componentDiv);
+                                    break;
+                                case 'low':
+                                    // 低电平：释放时回到1
+                                    componentStates.set(id, 1);
+                                    propagateSignal(componentDiv);
+                                    break;
+                            }
+                        });
+                    }
+
+                    // 为开关添加点击切换状态功能
+                    if (type === 'switch') {
+                        const switchGroup = componentDiv.querySelector('#switch-group') || componentDiv;
+                        switchGroup.addEventListener('click', function(e) {
+                            // 避免锚点点击触发状态切换
+                            if (e.target.classList.contains('anchor')) return;
+
+                            const id = componentDiv.dataset.id;
+
+                            // 获取当前状态并切换
+                            const currentState = componentStates.get(id) || 0;
+                            const newState = currentState === 0 ? 1 : 0;
+
+                            // 更新状态
+                            componentStates.set(id, newState);
+
+                            // 更新视觉状态
+                            if (typeof updateSwitchDisplay === 'function') {
+                                updateSwitchDisplay(componentDiv, newState);
+                            }
+
+                            console.log(`Switch (ID: ${id}) 状态切换为: ${newState}`);
+                            console.log(`componentStates.get(${id}):`, componentStates.get(id));
+
+                            // 传播信号
+                            propagateSignal(componentDiv);
+                        });
+                    }
 
                     // 为输入/输出端口和时钟信号添加点击切换状态功能
                     if (type === 'input' || type === 'output' || type === 'clock') {
@@ -1528,10 +1667,15 @@
                         // 检查锚点连接 - 支持多个连接
                         if (anchorConnections.has(inputAnchor)) {
                             const sourceAnchors = anchorConnections.get(inputAnchor);
+                            console.log(`输入锚点有 ${sourceAnchors.length} 个连接`);
                             sourceAnchors.forEach(sourceAnchor => {
                                 const sourceComp = sourceAnchor.closest('.component');
-                                signalSources.push(getComponentOutputState(sourceComp, sourceAnchor));
+                                const state = getComponentOutputState(sourceComp, sourceAnchor);
+                                console.log(`从 ${sourceComp.dataset.type} 获取状态:`, state);
+                                signalSources.push(state);
                             });
+                        } else {
+                            console.log('输入锚点没有在 anchorConnections 中找到连接');
                         }
 
                         // 检查分支连线
@@ -1580,7 +1724,9 @@
                     });
 
                     // 计算逻辑门输出
+                    console.log(`逻辑门 ${targetType} 输入状态:`, inputStates);
                     const outputState = logicFunctions[targetType](inputStates);
+                    console.log(`逻辑门 ${targetType} 输出状态:`, outputState);
                     const targetId = targetComponent.dataset.id;
 
                     // 处理多输出运算器
@@ -1604,8 +1750,10 @@
                 const id = component.dataset.id;
                 const type = component.dataset.type;
 
-                if (type === 'input' || type === 'output' || type === 'clock') {
-                    return componentStates.get(id);
+                if (type === 'input' || type === 'output' || type === 'clock' || type === 'push-button' || type === 'switch') {
+                    const state = componentStates.get(id);
+                    console.log(`getComponentOutputState for ${type} (ID: ${id}):`, state);
+                    return state;
                 } else if (['adder', 'subtractor', 'divider'].includes(type)) {
                     // 运算器有多个输出，需要根据输出锚点确定返回哪个值
                     const state = componentStates.get(id);
@@ -2018,9 +2166,64 @@
 
             // 显示右键菜单
             function showContextMenu(x, y) {
+                // 清除之前的动态菜单项
+                const dynamicItems = contextMenu.querySelectorAll('.dynamic-item');
+                dynamicItems.forEach(item => item.remove());
+
+                // 如果选中的是按钮，添加配置选项
+                if (selectedElement && selectedElement.dataset.type === 'push-button') {
+                    const id = selectedElement.dataset.id;
+                    const currentConfig = typeof getButtonConfig === 'function' ? getButtonConfig(id) : { trigger: 'high' };
+
+                    const configItem = document.createElement('div');
+                    configItem.className = 'context-menu-item dynamic-item';
+                    configItem.innerHTML = `<span>触发模式: ${getTriggerModeName(currentConfig.trigger)}</span>`;
+
+                    const subMenu = document.createElement('div');
+                    subMenu.className = 'context-submenu';
+
+                    const modes = [
+                        { value: 'high', name: '高电平' },
+                        { value: 'low', name: '低电平' },
+                        { value: 'rising', name: '上升沿' },
+                        { value: 'falling', name: '下降沿' }
+                    ];
+
+                    modes.forEach(mode => {
+                        const subMenuItem = document.createElement('div');
+                        subMenuItem.className = 'context-submenu-item';
+                        subMenuItem.textContent = mode.name;
+                        if (mode.value === currentConfig.trigger) {
+                            subMenuItem.classList.add('active');
+                        }
+                        subMenuItem.addEventListener('click', (e) => {
+                            e.stopPropagation();
+                            if (typeof setButtonConfig === 'function') {
+                                setButtonConfig(id, { trigger: mode.value });
+                            }
+                            hideContextMenu();
+                        });
+                        subMenu.appendChild(subMenuItem);
+                    });
+
+                    configItem.appendChild(subMenu);
+                    contextMenu.appendChild(configItem);
+                }
+
                 contextMenu.style.left = x + 'px';
                 contextMenu.style.top = y + 'px';
                 contextMenu.style.display = 'block';
+            }
+
+            // 获取触发模式的中文名称
+            function getTriggerModeName(trigger) {
+                const names = {
+                    'high': '高电平',
+                    'low': '低电平',
+                    'rising': '上升沿',
+                    'falling': '下降沿'
+                };
+                return names[trigger] || '高电平';
             }
 
             // 隐藏右键菜单
