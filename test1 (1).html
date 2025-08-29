@@ -10,8 +10,6 @@
     <script src="magnetic-snap.js"></script>
     <!-- 引入手势控制功能 -->
     <script src="gesture-control.js"></script>
-    <!-- 引入打开功能 -->
-    <script src="open.js"></script>
     <!-- 引入保存功能 -->
     <script src="save.js"></script>
     <!-- 引入按钮元件 -->
@@ -20,9 +18,209 @@
     <!-- 引入开关元件 -->
     <link rel="stylesheet" href="switch.css">
     <script src="switch.js"></script>
+    <!-- 引入线路组件功能 -->
+    <script src="circuit-components.js"></script>
+    <!-- 引入引脚配置测试脚本 -->
+    <script src="test-pin-config.js"></script>
+    <!-- 引入调试脚本 -->
+    <script src="debug-button-click.js"></script>
 </head>
 
 <body>
+    <!-- 全局输入端口配置函数 -->
+    <script>
+        // 应用输入端口配置
+        function applyInputPortConfig(button) {
+            console.log('开始执行 applyInputPortConfig');
+            
+            try {
+                const dialog = button.closest('.config-dialog');
+                if (!dialog) {
+                    console.error('找不到配置对话框');
+                    return;
+                }
+                
+                const componentId = dialog.dataset.componentId;
+                const component = document.querySelector(`[data-id="${componentId}"]`);
+                console.log('组件ID:', componentId, '组件:', component);
+                
+                // 获取位宽设置
+                const bitWidthSelect = dialog.querySelector('#input-bitwidth-select');
+                const customInput = dialog.querySelector('#custom-bitwidth');
+                
+                let newBitWidth;
+                if (bitWidthSelect.value === 'custom') {
+                    newBitWidth = parseInt(customInput.value) || 1;
+                } else {
+                    newBitWidth = parseInt(bitWidthSelect.value);
+                }
+                
+                console.log('新位宽:', newBitWidth);
+                
+                if (newBitWidth < 1 || newBitWidth > 64) {
+                    alert('位宽必须在 1-64 之间！');
+                    return;
+                }
+                
+                // 获取二进制输入
+                const inputValue = dialog.querySelector('#dataInput').value;
+                console.log('输入的二进制值:', inputValue);
+                
+                if (inputValue.trim()) {
+                    try {
+                        // 检查二进制格式
+                        if (!/^[01]+$/.test(inputValue)) {
+                            throw new Error('二进制数只能包含0和1');
+                        }
+                        if (inputValue.length > newBitWidth) {
+                            throw new Error(`二进制数的位数不能超过${newBitWidth}`);
+                        }
+                        
+                        // 转换为二进制数组，补齐到指定位宽
+                        const paddedBinary = inputValue.padStart(newBitWidth, '0');
+                        const newData = paddedBinary.split('').map(bit => parseInt(bit));
+                        console.log('转换后的数据数组:', newData);
+                        
+                        // 更新数据 - 使用全局函数
+                        if (typeof window.setComponentBitWidth === 'function') {
+                            window.setComponentBitWidth(componentId, newBitWidth);
+                            window.setComponentMultiBitData(componentId, newData);
+                            console.log('使用全局函数更新数据成功');
+                        } else {
+                            console.error('全局函数未找到，等待DOM加载完成...');
+                            // 延迟执行，等待函数加载
+                            setTimeout(() => {
+                                if (typeof window.setComponentBitWidth === 'function') {
+                                    window.setComponentBitWidth(componentId, newBitWidth);
+                                    window.setComponentMultiBitData(componentId, newData);
+                                    window.updatePortDisplay(componentId);
+                                    if (component && typeof window.propagateSignal === 'function') {
+                                        window.propagateSignal(component);
+                                    }
+                                    console.log('延迟执行成功');
+                                } else {
+                                    console.error('延迟执行仍然无法找到函数');
+                                }
+                            }, 100);
+                        }
+                        
+                    } catch (error) {
+                        console.error('数据处理错误:', error);
+                        alert('错误: ' + error.message);
+                        return;
+                    }
+                } else {
+                    // 只更新位宽，不更新数值
+                    console.log('只更新位宽，不更新数值');
+                    if (typeof window.setComponentBitWidth === 'function') {
+                        window.setComponentBitWidth(componentId, newBitWidth);
+                    } else {
+                        setTimeout(() => {
+                            if (typeof window.setComponentBitWidth === 'function') {
+                                window.setComponentBitWidth(componentId, newBitWidth);
+                                window.updatePortDisplay(componentId);
+                                if (component && typeof window.propagateSignal === 'function') {
+                                    window.propagateSignal(component);
+                                }
+                            }
+                        }, 100);
+                    }
+                }
+                
+                // 更新显示
+                if (typeof window.updatePortDisplay === 'function') {
+                    console.log('调用 updatePortDisplay');
+                    window.updatePortDisplay(componentId);
+                    
+                    // 传播信号
+                    if (component && typeof window.propagateSignal === 'function') {
+                        console.log('调用 propagateSignal');
+                        window.propagateSignal(component);
+                    }
+                } else {
+                    console.error('updatePortDisplay 函数未找到');
+                }
+                
+                // 检查最终状态
+                setTimeout(() => {
+                    if (typeof window.getComponentMultiBitData === 'function') {
+                        const finalData = window.getComponentMultiBitData(componentId);
+                        console.log('最终数据状态:', finalData);
+                        
+                        // 检查SVG显示元素
+                        const textElement = component ? component.querySelector('#input-text') : null;
+                        console.log('SVG文本元素:', textElement);
+                        if (textElement) {
+                            console.log('当前显示内容:', textElement.textContent);
+                        }
+                    }
+                }, 200);
+                
+                // 关闭对话框
+                document.body.removeChild(dialog);
+                console.log('applyInputPortConfig 执行成功');
+                
+            } catch (error) {
+                console.error('applyInputPortConfig 执行失败:', error);
+                alert('配置失败: ' + error.message);
+            }
+        }
+        
+        // 取消输入端口配置
+        function cancelInputPortConfig(button) {
+            const dialog = button.closest('.config-dialog');
+            document.body.removeChild(dialog);
+        }
+        
+        // 应用输出端口配置
+        function applyOutputPortConfig(button) {
+            try {
+                const dialog = button.closest('.config-dialog');
+                const componentId = dialog.dataset.componentId;
+                const component = document.querySelector(`[data-id="${componentId}"]`);
+                
+                // 获取位宽设置
+                const bitWidthSelect = dialog.querySelector('#output-bitwidth-select');
+                const customInput = dialog.querySelector('#output-custom-bitwidth');
+                
+                let newBitWidth;
+                if (bitWidthSelect.value === 'custom') {
+                    newBitWidth = parseInt(customInput.value) || 1;
+                } else {
+                    newBitWidth = parseInt(bitWidthSelect.value);
+                }
+                
+                if (newBitWidth < 1 || newBitWidth > 64) {
+                    alert('位宽必须在 1-64 之间！');
+                    return;
+                }
+                
+                // 更新位宽
+                if (typeof window.setComponentBitWidth === 'function') {
+                    window.setComponentBitWidth(componentId, newBitWidth);
+                    window.updatePortDisplay(componentId);
+                } else {
+                    setTimeout(() => {
+                        if (typeof window.setComponentBitWidth === 'function') {
+                            window.setComponentBitWidth(componentId, newBitWidth);
+                            window.updatePortDisplay(componentId);
+                        }
+                    }, 100);
+                }
+                
+                document.body.removeChild(dialog);
+            } catch (error) {
+                console.error('输出端口配置错误:', error);
+                alert('配置失败: ' + error.message);
+            }
+        }
+        
+        // 取消输出端口配置
+        function cancelOutputPortConfig(button) {
+            const dialog = button.closest('.config-dialog');
+            document.body.removeChild(dialog);
+        }
+    </script>
     <div class="nav">
         <ul class="navlist">
             <li class="btli"><a href="#">文件(F)</a>
@@ -195,6 +393,19 @@
                     </ul>
                 </details>
             </div>
+
+            <div class="component-list">
+                <details>
+                    <summary>线路</summary>
+                    <ul>
+                        <li data-type="pin">引脚</li>
+                        <li data-type="splitter">分线器</li>
+                        <li data-type="probe">探针</li>
+                        <li data-type="power">电源</li>
+                        <li data-type="ground">接地</li>
+                    </ul>
+                </details>
+            </div>
         </div>
 
         <div class="canvas-container">
@@ -358,6 +569,10 @@
 
             // 存储所有元件的状态
             const componentStates = new Map();
+            // 存储输入/输出端口的位宽配置
+            const componentBitWidth = new Map();
+            // 存储多位数据端口的具体数值
+            const componentMultiBitData = new Map();
             // 存储锚点连接关系 - 每个锚点可以连接多个其他锚点
             const anchorConnections = new Map();
             // 当前选中的元素
@@ -387,22 +602,40 @@
                     </svg>
                 `,
                 'input': `
-                    <svg class="component-svg" viewBox="0 0 100 50" xmlns="http://www.w3.org/2000/svg">
-                        <g id="input-group" transform="translate(50, 25)">
-                            <rect id="input-bg" x="-40" y="-15" width="40" height="30" rx="5" fill="#006400" stroke="black" stroke-width="2" class="state-0"/>
-                            <text id="input-text" class="state-text" x="-20" y="5" font-family="Arial" font-size="16" font-weight="bold" text-anchor="middle" fill="white">0</text>
+                    <svg class="component-svg" viewBox="0 0 120 60" xmlns="http://www.w3.org/2000/svg">
+                        <g id="input-group" transform="translate(60, 30)">
+                            <rect id="input-bg" x="-50" y="-20" width="50" height="40" rx="5" fill="#006400" stroke="black" stroke-width="2" class="state-0"/>
+                            <!-- 数据值显示 -->
+                            <text id="input-text" class="state-text" x="-25" y="-2" font-family="Arial" font-size="14" font-weight="bold" text-anchor="middle" fill="white">0</text>
+                            <!-- 位宽标签显示 -->
+                            <text id="input-width-label" x="-25" y="12" font-family="Arial" font-size="8" text-anchor="middle" fill="white">1bit</text>
+                            <!-- 输出锚点 -->
                             <circle class="anchor output-anchor" data-anchor-type="output" cx="0" cy="0" r="5" fill="black"/>
                             <line x1="-5" y1="0" x2="0" y2="0" stroke="black" stroke-width="2"/>
+                            <!-- 多位指示器(当位宽>1时显示) -->
+                            <g id="multi-bit-indicator" style="display: none;">
+                                <rect x="-45" y="15" width="40" height="8" fill="#004400" stroke="black" stroke-width="1" rx="2"/>
+                                <text x="-25" y="20" font-family="Arial" font-size="6" text-anchor="middle" fill="white">MULTI</text>
+                            </g>
                         </g>
                     </svg>
                 `,
                 'output': `
-                    <svg class="component-svg" viewBox="-10 0 110 50" xmlns="http://www.w3.org/2000/svg">
-                        <g id="output-group" transform="translate(50, 25)">
-                            <rect id="output-bg" x="-40" y="-15" width="40" height="30" rx="5" fill="#008000" stroke="black" stroke-width="2" class="state-0"/>
-                            <text id="output-text" class="state-text" x="-20" y="5" font-family="Arial" font-size="16" font-weight="bold" text-anchor="middle" fill="white">0</text>
-                            <circle class="anchor input-anchor" data-anchor-type="input" cx="-50" cy="0" r="5" fill="black"/>
-                            <line x1="-45" y1="0" x2="-40" y2="0" stroke="black" stroke-width="2"/>
+                    <svg class="component-svg" viewBox="-10 0 130 60" xmlns="http://www.w3.org/2000/svg">
+                        <g id="output-group" transform="translate(60, 30)">
+                            <rect id="output-bg" x="-50" y="-20" width="50" height="40" rx="5" fill="#008000" stroke="black" stroke-width="2" class="state-0"/>
+                            <!-- 数据值显示 -->
+                            <text id="output-text" class="state-text" x="-25" y="-2" font-family="Arial" font-size="14" font-weight="bold" text-anchor="middle" fill="white">0</text>
+                            <!-- 位宽标签显示 -->
+                            <text id="output-width-label" x="-25" y="12" font-family="Arial" font-size="8" text-anchor="middle" fill="white">1bit</text>
+                            <!-- 输入锚点 -->
+                            <circle class="anchor input-anchor" data-anchor-type="input" cx="-60" cy="0" r="5" fill="black"/>
+                            <line x1="-55" y1="0" x2="-50" y2="0" stroke="black" stroke-width="2"/>
+                            <!-- 多位指示器(当位宽>1时显示) -->
+                            <g id="multi-bit-indicator" style="display: none;">
+                                <rect x="-45" y="15" width="40" height="8" fill="#006600" stroke="black" stroke-width="1" rx="2"/>
+                                <text x="-25" y="20" font-family="Arial" font-size="6" text-anchor="middle" fill="white">MULTI</text>
+                            </g>
                         </g>
                     </svg>
                 `,
@@ -648,6 +881,9 @@
                 `
             };
 
+            // 集成线路组件的SVG模板
+            Object.assign(componentSvgs, window.CircuitComponents.svgs);
+
             // 逻辑门计算函数
             const logicFunctions = {
                 'and-gate': (inputs) => inputs.reduce((a, b) => a && b, true),
@@ -700,6 +936,118 @@
                     return 1 - a; // 对于单位逻辑，取反就是1-a
                 }
             };
+
+            // 多位数据处理的辅助函数
+            
+            // 获取组件的位宽
+            function getComponentBitWidth(componentId) {
+                return componentBitWidth.get(componentId) || 1;
+            }
+
+            // 设置组件的位宽
+            function setComponentBitWidth(componentId, width) {
+                componentBitWidth.set(componentId, width);
+                
+                // 调整数据数组长度
+                let data = componentMultiBitData.get(componentId) || [0];
+                if (width > data.length) {
+                    // 扩展数组，新位填0
+                    data = [...data, ...Array(width - data.length).fill(0)];
+                } else if (width < data.length) {
+                    // 截取数组
+                    data = data.slice(0, width);
+                }
+                componentMultiBitData.set(componentId, data);
+                
+                // 更新状态为组合状态
+                updateComponentState(componentId);
+            }
+
+            // 获取组件的多位数据
+            function getComponentMultiBitData(componentId) {
+                return componentMultiBitData.get(componentId) || [0];
+            }
+
+            // 设置组件某一位的数据
+            function setComponentBitData(componentId, bitIndex, value) {
+                let data = getComponentMultiBitData(componentId);
+                if (bitIndex >= 0 && bitIndex < data.length) {
+                    data[bitIndex] = value ? 1 : 0;
+                    componentMultiBitData.set(componentId, data);
+                    updateComponentState(componentId);
+                }
+            }
+
+            // 设置整个多位数据
+            function setComponentMultiBitData(componentId, dataArray) {
+                componentMultiBitData.set(componentId, [...dataArray]);
+                updateComponentState(componentId);
+            }
+
+            // 更新组件的综合状态（从多位数据计算）
+            function updateComponentState(componentId) {
+                const data = getComponentMultiBitData(componentId);
+                // 将多位数据转换为十进制数值
+                const decimalValue = data.reduce((acc, bit, index) => {
+                    return acc + bit * Math.pow(2, data.length - 1 - index);
+                }, 0);
+                componentStates.set(componentId, decimalValue);
+            }
+
+            // 获取组件的二进制字符串表示
+            function getComponentBinaryString(componentId) {
+                const data = getComponentMultiBitData(componentId);
+                return data.join('');
+            }
+
+            // 获取组件的十六进制字符串表示
+            function getComponentHexString(componentId) {
+                const decimalValue = componentStates.get(componentId) || 0;
+                return '0x' + decimalValue.toString(16).toUpperCase().padStart(Math.ceil(getComponentBitWidth(componentId) / 4), '0');
+            }
+
+            // 更新端口显示
+            function updatePortDisplay(componentId) {
+                const component = canvas.querySelector(`[data-id="${componentId}"]`);
+                if (!component) return;
+                
+                const bitWidth = getComponentBitWidth(componentId);
+                const data = getComponentMultiBitData(componentId);
+                const decimalValue = componentStates.get(componentId) || 0;
+                
+                // 更新位宽标签
+                const widthLabel = component.querySelector('#input-width-label') || component.querySelector('#output-width-label');
+                if (widthLabel) {
+                    widthLabel.textContent = `${bitWidth}bit`;
+                }
+                
+                // 更新数据显示
+                const textElement = component.querySelector('#input-text') || component.querySelector('#output-text');
+                if (textElement) {
+                    if (bitWidth === 1) {
+                        textElement.textContent = data[0].toString();
+                    } else if (bitWidth <= 4) {
+                        // 小于等于4位显示二进制
+                        textElement.textContent = getComponentBinaryString(componentId);
+                    } else {
+                        // 大于4位显示十进制
+                        textElement.textContent = decimalValue.toString();
+                    }
+                }
+                
+                // 更新背景颜色（根据是否为0）
+                const bgElement = component.querySelector('#input-bg') || component.querySelector('#output-bg');
+                if (bgElement) {
+                    bgElement.classList.remove('state-0', 'state-1');
+                    bgElement.classList.add(decimalValue === 0 ? 'state-0' : 'state-1');
+                }
+                
+                // 显示/隐藏多位指示器
+                const indicator = component.querySelector('#multi-bit-indicator');
+                if (indicator) {
+                    indicator.style.display = bitWidth > 1 ? 'block' : 'none';
+                }
+            }
 
             // 初始化外部组件
             if (typeof initializePushButtonComponent === 'function') {
@@ -762,7 +1110,29 @@
             function initializeComponent(componentDiv, type) {
                 // 初始化状态
                 if (type === 'input' || type === 'output') {
-                    componentStates.set(componentDiv.dataset.id, 0);
+                    const id = componentDiv.dataset.id;
+                    componentStates.set(id, 0);
+                    // 设置默认位宽为1位
+                    componentBitWidth.set(id, 1);
+                    // 初始化多位数据为0
+                    componentMultiBitData.set(id, [0]);
+                    // 更新显示
+                    updatePortDisplay(id);
+                    
+                    // 设置光标和提示
+                    componentDiv.style.cursor = 'pointer';
+                    componentDiv.title = `${type === 'input' ? '输入' : '输出'}端口 - 双击配置位宽和数据值`;
+                    
+                    // 添加双击配置事件
+                    componentDiv.addEventListener('dblclick', (e) => {
+                        e.preventDefault();
+                        e.stopPropagation();
+                        if (type === 'input') {
+                            showInputPortConfigDialog(componentDiv);
+                        } else {
+                            showOutputPortConfigDialog(componentDiv);
+                        }
+                    });
                 } else if (type === 'clock') {
                     const id = componentDiv.dataset.id;
                     componentStates.set(id, 0);
@@ -791,6 +1161,15 @@
                     // 初始化开关状态
                     if (typeof setSwitchState === 'function') {
                         setSwitchState(id, 0);
+                    }
+                }else if (['pin', 'splitter', 'probe', 'power', 'ground'].includes(type)) {
+                    // 线路组件初始化
+                    window.CircuitComponents.initialize(componentDiv, type);
+                    // 设置初始状态
+                    if (type === 'power') {
+                        componentStates.set(componentDiv.dataset.id, 1);
+                    } else {
+                        componentStates.set(componentDiv.dataset.id, 0);
                     }
                 }
 
@@ -1058,11 +1437,12 @@
                         });
                     }
 
-                    // 为输入/输出端口和时钟信号添加点击切换状态功能
-                    if (type === 'input' || type === 'output' || type === 'clock') {
+                    // 为输入/输出端口、时钟信号和引脚添加点击切换状态功能
+                    if (type === 'input' || type === 'output' || type === 'clock' || type === 'pin') {
                         const group = componentDiv.querySelector('#input-group') ||
                                      componentDiv.querySelector('#output-group') ||
                                      componentDiv.querySelector('#clock-group') ||
+                                     componentDiv.querySelector('#pin-group') ||
                                      componentDiv;
                         group.addEventListener('click', function(e) {
                             // 避免锚点点击触发状态切换
@@ -1073,29 +1453,81 @@
                                 return;
                             }
 
-                            const id = componentDiv.dataset.id;
-                            const currentState = componentStates.get(id);
-                            const newState = currentState === 0 ? 1 : 0;
-                            componentStates.set(id, newState);
-
-                            // 更新显示
-                            if (type === 'clock') {
-                                const bgElement = componentDiv.querySelector('#clock-bg');
-                                if (bgElement) {
-                                    bgElement.classList.toggle('clock-active');
-                                }
-                            } else {
-                                const textElement = componentDiv.querySelector('.state-text');
-                                const bgElement = componentDiv.querySelector('#input-bg') || componentDiv.querySelector('#output-bg');
-
-                                if (textElement) textElement.textContent = newState;
-                                if (bgElement) {
-                                    bgElement.classList.remove(currentState === 0 ? 'state-0' : 'state-1');
-                                    bgElement.classList.add(newState === 0 ? 'state-0' : 'state-1');
+                            // 引脚在输出模式时不允许手动点击切换状态
+                            if (type === 'pin') {
+                                const pinMode = componentDiv.dataset.pinMode || 'input';
+                                if (pinMode === 'output') {
+                                    return;
                                 }
                             }
 
-                            console.log(`${type} (ID: ${id}) 状态已切换为: ${newState}`);
+                            const id = componentDiv.dataset.id;
+                            
+                            if (type === 'input') {
+                                // 输入端口的点击处理
+                                const bitWidth = getComponentBitWidth(id);
+                                if (bitWidth === 1) {
+                                    // 单位数据，直接切换
+                                    const currentData = getComponentMultiBitData(id);
+                                    const newValue = currentData[0] === 0 ? 1 : 0;
+                                    setComponentBitData(id, 0, newValue);
+                                } else {
+                                    // 多位数据，循环切换所有位
+                                    const currentValue = componentStates.get(id) || 0;
+                                    const maxValue = Math.pow(2, bitWidth) - 1;
+                                    const newValue = (currentValue + 1) % (maxValue + 1);
+                                    
+                                    // 转换为二进制数组
+                                    const binaryStr = newValue.toString(2).padStart(bitWidth, '0');
+                                    const newData = binaryStr.split('').map(bit => parseInt(bit));
+                                    setComponentMultiBitData(id, newData);
+                                }
+                                updatePortDisplay(id);
+                            } else if (type === 'pin') {
+                                // 引脚在输入模式时的点击处理
+                                const isTriState = componentDiv.dataset.triState === 'true';
+                                const currentValue = componentDiv.dataset.pinValue || '0';
+                                let newValue;
+
+                                if (isTriState) {
+                                    // 三态模式：0 → 1 → X → 0
+                                    if (currentValue === '0') {
+                                        newValue = '1';
+                                    } else if (currentValue === '1') {
+                                        newValue = 'x';
+                                    } else {
+                                        newValue = '0';
+                                    }
+                                } else {
+                                    // 二态模式：0 → 1 → 0
+                                    const numValue = parseInt(currentValue);
+                                    newValue = (numValue === 0 ? 1 : 0).toString();
+                                }
+
+                                componentDiv.dataset.pinValue = newValue;
+
+                                // 更新引脚显示
+                                if (window.CircuitComponents && window.CircuitComponents.updatePinDisplay) {
+                                    window.CircuitComponents.updatePinDisplay(componentDiv, newValue);
+                                }
+
+                                console.log(`引脚 ${id} (输入模式) 值切换为: ${newValue}`);
+                            } else {
+                                // 时钟信号的原有处理逻辑
+                                const currentState = componentStates.get(id);
+                                const newState = currentState === 0 ? 1 : 0;
+                                componentStates.set(id, newState);
+
+                                // 更新显示
+                                if (type === 'clock') {
+                                    const bgElement = componentDiv.querySelector('#clock-bg');
+                                    if (bgElement) {
+                                        bgElement.classList.toggle('clock-active');
+                                    }
+                                }
+                            }
+
+                            console.log(`${type} (ID: ${id}) 状态已切换`);
 
                             // 触发逻辑计算
                             propagateSignal(componentDiv);
@@ -1647,8 +2079,41 @@
                 } else if (targetType === 'output') {
                     // 更新输出端口状态
                     const targetId = targetComponent.dataset.id;
-                    componentStates.set(targetId, sourceState);
-                    updateComponentDisplay(targetComponent, sourceState);
+                    const targetBitWidth = getComponentBitWidth(targetId);
+                    
+                    // 检查源信号是否为多位数据数组
+                    if (Array.isArray(sourceState)) {
+                        // 源信号是多位数据数组
+                        if (targetBitWidth === sourceState.length) {
+                            // 位宽匹配，直接复制
+                            setComponentMultiBitData(targetId, [...sourceState]);
+                        } else if (targetBitWidth > sourceState.length) {
+                            // 目标位宽更大，高位补0
+                            const paddedData = [...sourceState, ...Array(targetBitWidth - sourceState.length).fill(0)];
+                            setComponentMultiBitData(targetId, paddedData);
+                        } else {
+                            // 目标位宽更小，截取低位
+                            const truncatedData = sourceState.slice(0, targetBitWidth);
+                            setComponentMultiBitData(targetId, truncatedData);
+                        }
+                        console.log(`多位数据传播: 源[${sourceState.join('')}] -> 目标(${targetBitWidth}位)`);
+                    } else {
+                        // 源信号是单一数值
+                        if (targetBitWidth === 1) {
+                            // 单位输出，直接设置值
+                            componentStates.set(targetId, sourceState);
+                            const data = [sourceState];
+                            setComponentMultiBitData(targetId, data);
+                        } else {
+                            // 多位输出，将源信号扩展或截断到目标位宽
+                            const binaryStr = sourceState.toString(2).padStart(targetBitWidth, '0');
+                            const data = binaryStr.split('').map(bit => parseInt(bit));
+                            setComponentMultiBitData(targetId, data);
+                        }
+                        console.log(`单值数据传播: 源[${sourceState}] -> 目标(${targetBitWidth}位)`);
+                    }
+                    
+                    updatePortDisplay(targetId);
                 } else if (isSequentialElement(targetType)) {
                     // 时序逻辑元件不响应普通信号传播，只响应时钟边沿
                     // 但是如果是D输入，我们需要记录当前值供时钟边沿时使用
@@ -1656,6 +2121,37 @@
 
                         // 这里不立即更新输出，只记录输入状态
                     }
+                    return;
+                } else if (['pin', 'splitter', 'probe', 'power', 'ground'].includes(targetType)) {
+                    // 线路组件处理
+                    const targetId = targetComponent.dataset.id;
+
+                    if (targetType === 'pin') {
+                        // 引脚在输出模式时接收输入信号
+                        const pinMode = targetComponent.dataset.pinMode || 'input';
+                        if (pinMode === 'output') {
+                            // 输出模式的引脚接收输入信号并显示
+                            componentStates.set(targetId, sourceState);
+
+                            // 更新引脚显示
+                            if (window.CircuitComponents && window.CircuitComponents.updatePinDisplay) {
+                                window.CircuitComponents.updatePinDisplay(targetComponent, sourceState);
+                            }
+                            console.log(`引脚 ${targetId} (输出模式) 接收信号: ${sourceState}`);
+                        }
+                    } else if (targetType === 'probe') {
+                        // 探针显示输入信号
+                        componentStates.set(targetId, sourceState);
+                        if (window.CircuitComponents && window.CircuitComponents.updateProbeDisplay) {
+                            window.CircuitComponents.updateProbeDisplay(targetComponent, sourceState);
+                        }
+                    } else if (targetType === 'splitter') {
+                        // 分线器处理输入信号
+                        componentStates.set(targetId, sourceState);
+                        // 继续传播信号
+                        propagateSignal(targetComponent);
+                    }
+                    // power 和 ground 不接收输入信号
                     return;
                 } else {
                     // 组合逻辑门
@@ -1672,7 +2168,15 @@
                                 const sourceComp = sourceAnchor.closest('.component');
                                 const state = getComponentOutputState(sourceComp, sourceAnchor);
                                 console.log(`从 ${sourceComp.dataset.type} 获取状态:`, state);
-                                signalSources.push(state);
+                                // 如果是多位数据数组，转换为十进制数值
+                                if (Array.isArray(state)) {
+                                    const decimalValue = state.reduce((acc, bit, index) => {
+                                        return acc + bit * Math.pow(2, state.length - 1 - index);
+                                    }, 0);
+                                    signalSources.push(decimalValue > 0 ? 1 : 0); // 逻辑门只关心是否为0
+                                } else {
+                                    signalSources.push(state);
+                                }
                             });
                         } else {
                             console.log('输入锚点没有在 anchorConnections 中找到连接');
@@ -1684,7 +2188,16 @@
                             const originalWire = wires.find(w => w.line === branchWire.branchFrom);
                             if (originalWire && originalWire.start) {
                                 const sourceComp = originalWire.start.closest('.component');
-                                signalSources.push(getComponentOutputState(sourceComp, originalWire.start));
+                                const state = getComponentOutputState(sourceComp, originalWire.start);
+                                // 处理多位数据
+                                if (Array.isArray(state)) {
+                                    const decimalValue = state.reduce((acc, bit, index) => {
+                                        return acc + bit * Math.pow(2, state.length - 1 - index);
+                                    }, 0);
+                                    signalSources.push(decimalValue > 0 ? 1 : 0);
+                                } else {
+                                    signalSources.push(state);
+                                }
                             }
                         }
 
@@ -1693,7 +2206,16 @@
                         multipleConnections.forEach(wire => {
                             if (wire.start && !signalSources.length) { // 避免重复计算
                                 const sourceComp = wire.start.closest('.component');
-                                signalSources.push(getComponentOutputState(sourceComp, wire.start));
+                                const state = getComponentOutputState(sourceComp, wire.start);
+                                // 处理多位数据
+                                if (Array.isArray(state)) {
+                                    const decimalValue = state.reduce((acc, bit, index) => {
+                                        return acc + bit * Math.pow(2, state.length - 1 - index);
+                                    }, 0);
+                                    signalSources.push(decimalValue > 0 ? 1 : 0);
+                                } else {
+                                    signalSources.push(state);
+                                }
                             }
                         });
 
@@ -1706,7 +2228,16 @@
                                 connectingWires.forEach(connectingWire => {
                                     if (connectingWire.start) {
                                         const sourceComp = connectingWire.start.closest('.component');
-                                        signalSources.push(getComponentOutputState(sourceComp, connectingWire.start));
+                                        const state = getComponentOutputState(sourceComp, connectingWire.start);
+                                        // 处理多位数据
+                                        if (Array.isArray(state)) {
+                                            const decimalValue = state.reduce((acc, bit, index) => {
+                                                return acc + bit * Math.pow(2, state.length - 1 - index);
+                                            }, 0);
+                                            signalSources.push(decimalValue > 0 ? 1 : 0);
+                                        } else {
+                                            signalSources.push(state);
+                                        }
                                     }
                                 });
                             }
@@ -1747,10 +2278,20 @@
             
             // 获取元件输出状态
             function getComponentOutputState(component, outputAnchor = null) {
+                if (!component || !component.dataset) {
+                    console.error('getComponentOutputState: component is null or has no dataset');
+                    return 0;
+                }
+
                 const id = component.dataset.id;
                 const type = component.dataset.type;
 
-                if (type === 'input' || type === 'output' || type === 'clock' || type === 'push-button' || type === 'switch') {
+                if (type === 'input') {
+                    // 输入端口返回多位数据数组
+                    const multiData = getComponentMultiBitData(id);
+                    console.log(`getComponentOutputState for input (ID: ${id}):`, multiData);
+                    return multiData;
+                } else if (type === 'output' || type === 'clock' || type === 'push-button' || type === 'switch') {
                     const state = componentStates.get(id);
                     console.log(`getComponentOutputState for ${type} (ID: ${id}):`, state);
                     return state;
@@ -1769,25 +2310,119 @@
                         return anchorY === 50 ? state.quotient : state.remainder;
                     }
                     return 0;
+                } else if (['pin', 'splitter', 'probe', 'power', 'ground'].includes(type)) {
+                    // 线路组件使用专门的逻辑函数
+                    if (window.CircuitComponents && window.CircuitComponents.logicFunctions) {
+                        const logicFunction = window.CircuitComponents.logicFunctions[type];
+                        if (logicFunction) {
+                            // 获取输入状态
+                            const inputs = getComponentInputStates(component);
+                            console.log(`调用${type}逻辑函数，输入:`, inputs, '输入详情:', inputs.map((i, idx) => `[${idx}]: ${typeof i}${Array.isArray(i) ? '(array)' : ''} = ${Array.isArray(i) ? '[' + i.join(',') + ']' : i}`));
+                            // 对于分线器，传递输出锚点参数以确定返回哪个输出
+                            if (type === 'splitter') {
+                                return logicFunction(inputs, component, outputAnchor);
+                            } else {
+                                return logicFunction(inputs, component);
+                            }
+                        }
+                    }
+                    return componentStates.get(id) || 0;
                 } else {
                     // 普通逻辑门和求补器
                     return componentStates.get(id) || 0;
                 }
             }
-            
+
+            // 获取组件的输入状态数组
+            function getComponentInputStates(component) {
+                const inputAnchors = Array.from(component.querySelectorAll('.input-anchor'));
+                const componentType = component.dataset.type;
+                console.log(`getComponentInputStates for ${componentType}, 输入锚点数量:`, inputAnchors.length);
+
+                return inputAnchors.map((inputAnchor, anchorIndex) => {
+                    const signalSources = [];
+
+                    // 检查直接连接的锚点
+                    if (anchorConnections.has(inputAnchor)) {
+                        const sourceAnchors = anchorConnections.get(inputAnchor);
+                        sourceAnchors.forEach(sourceAnchor => {
+                            const sourceComp = sourceAnchor.closest('.component');
+                            if (sourceComp) {
+                                const state = getComponentOutputState(sourceComp, sourceAnchor);
+                                const targetComponent = inputAnchor.closest('.component');
+                                console.log(`    锚点连接: 源组件${sourceComp.dataset.type} -> 目标组件${targetComponent?.dataset.type}, 状态:`, state, '类型:', typeof state);
+
+                                // 处理多位数据
+                                if (Array.isArray(state)) {
+                                    // 对于分线器，保持原始数组
+                                    if (targetComponent && targetComponent.dataset.type === 'splitter') {
+                                        console.log(`      分线器接收原始数组:`, state);
+                                        signalSources.push(state); // 分线器接收原始数组
+                                    } else {
+                                        // 其他组件转换为十进制值
+                                        const decimalValue = state.reduce((acc, bit, index) => {
+                                            return acc + bit * Math.pow(2, state.length - 1 - index);
+                                        }, 0);
+                                        console.log(`      转换数组为十进制: ${state} -> ${decimalValue}`);
+                                        signalSources.push(decimalValue);
+                                    }
+                                } else {
+                                    console.log(`      直接使用数值:`, state);
+                                    signalSources.push(state);
+                                }
+                            }
+                        });
+                    }
+
+                    // 检查连线连接
+                    const connectingWires = wires.filter(wire => wire.end === inputAnchor);
+                    connectingWires.forEach(wire => {
+                        if (wire.start) {
+                            const sourceComp = wire.start.closest('.component');
+                            if (sourceComp) {
+                                const state = getComponentOutputState(sourceComp, wire.start);
+                                // 处理多位数据
+                                if (Array.isArray(state)) {
+                                    // 对于分线器，保持原始数组
+                                    const targetComponent = inputAnchor.closest('.component');
+                                    if (targetComponent && targetComponent.dataset.type === 'splitter') {
+                                        signalSources.push(state); // 分线器接收原始数组
+                                    } else {
+                                        // 其他组件转换为十进制值
+                                        const decimalValue = state.reduce((acc, bit, index) => {
+                                            return acc + bit * Math.pow(2, state.length - 1 - index);
+                                        }, 0);
+                                        signalSources.push(decimalValue);
+                                    }
+                                } else {
+                                    signalSources.push(state);
+                                }
+                            }
+                        }
+                    });
+
+                    // 如果有多个信号源，进行逻辑OR操作（线或）
+                    if (signalSources.length > 1) {
+                        return signalSources.some(state => state === 1) ? 1 : 0;
+                    } else if (signalSources.length === 1) {
+                        const result = signalSources[0];
+                        console.log(`  锚点${anchorIndex}: 返回结果:`, result, '类型:', typeof result, '是否为数组:', Array.isArray(result));
+                        return result;
+                    }
+
+                    console.log(`  锚点${anchorIndex}: 无信号源，返回默认值0`);
+                    return 0; // 默认无连接为低电平
+                });
+            }
+
             // 更新元件显示
             function updateComponentDisplay(component, state) {
                 const type = component.dataset.type;
+                const id = component.dataset.id;
 
                 if (type === 'output') {
-                    const textElement = component.querySelector('.state-text');
-                    const bgElement = component.querySelector('#output-bg');
-
-                    if (textElement) textElement.textContent = state ? "1" : "0";
-                    if (bgElement) {
-                        bgElement.classList.remove(state ? 'state-0' : 'state-1');
-                        bgElement.classList.add(state ? 'state-1' : 'state-0');
-                    }
+                    // 使用统一的端口显示更新函数
+                    updatePortDisplay(id);
                 } else if (type === 'd-flipflop') {
                     // 更新D触发器的显示状态
                     const qText = component.querySelector('text[x="185"][y="55"]');
@@ -1805,6 +2440,31 @@
                     if (rect) {
                         rect.setAttribute('fill', state ? '#e8f5e8' : '#f5e8e8');
                     }
+                } else if (['pin', 'splitter', 'probe', 'power', 'ground'].includes(type)) {
+                    // 线路组件显示更新
+                    if (type === 'pin') {
+                        // 引脚显示更新
+                        const pinMode = component.dataset.pinMode || 'input';
+                        if (pinMode === 'output') {
+                            // 输出模式的引脚显示接收到的值
+                            console.log(`引脚 ${id} (输出模式) 接收到值: ${state}`);
+                            if (window.CircuitComponents && window.CircuitComponents.updatePinDisplay) {
+                                window.CircuitComponents.updatePinDisplay(component, state);
+                            }
+                        } else {
+                            // 输入模式的引脚显示设置的值
+                            const pinValue = parseInt(component.dataset.pinValue || '0');
+                            if (window.CircuitComponents && window.CircuitComponents.updatePinDisplay) {
+                                window.CircuitComponents.updatePinDisplay(component, pinValue);
+                            }
+                        }
+                    } else if (type === 'probe') {
+                        // 探针显示更新
+                        if (window.CircuitComponents && window.CircuitComponents.updateProbeDisplay) {
+                            window.CircuitComponents.updateProbeDisplay(component, state);
+                        }
+                    }
+                    // 其他线路组件的显示更新可以在这里添加
                 }
             }
 
@@ -2224,6 +2884,192 @@
                     'falling': '下降沿'
                 };
                 return names[trigger] || '高电平';
+            }
+
+            // 显示输入端口配置对话框
+            function showInputPortConfigDialog(component) {
+                const id = component.dataset.id;
+                const currentBitWidth = getComponentBitWidth(id);
+                const currentData = getComponentMultiBitData(id);
+                const currentBinary = getComponentBinaryString(id);
+                
+                const dialog = document.createElement('div');
+                dialog.className = 'config-dialog';
+                dialog.innerHTML = `
+                    <div class="config-dialog-content">
+                        <h3>📥 输入端口配置</h3>
+                        <div class="config-group">
+                            <label>位宽设置:</label>
+                            <select id="input-bitwidth-select">
+                                <option value="1" ${currentBitWidth === 1 ? 'selected' : ''}>单位 (1bit)</option>
+                                <option value="2" ${currentBitWidth === 2 ? 'selected' : ''}>双位 (2bit)</option>
+                                <option value="4" ${currentBitWidth === 4 ? 'selected' : ''}>四位 (4bit)</option>
+                                <option value="8" ${currentBitWidth === 8 ? 'selected' : ''}>字节 (8bit)</option>
+                                <option value="16" ${currentBitWidth === 16 ? 'selected' : ''}>字 (16bit)</option>
+                                <option value="32" ${currentBitWidth === 32 ? 'selected' : ''}>双字 (32bit)</option>
+                                <option value="custom">自定义...</option>
+                            </select>
+                            <input type="number" id="custom-bitwidth" min="1" max="64" value="${currentBitWidth}" style="display:none; width:60px; margin-left:10px;">
+                        </div>
+                        
+                        <div class="config-group">
+                            <label>当前值:</label>
+                            <div style="background: #f0f0f0; padding: 8px; border-radius: 4px; margin: 5px 0; font-family: monospace;">
+                                二进制: ${currentBinary}
+                            </div>
+                        </div>
+                        
+                        <div class="config-group">
+                            <label>输入新值（二进制）:</label><br>
+                            <input type="text" id="dataInput" placeholder="请输入二进制数值，如: 101" style="width: 100%; margin-top: 8px; padding: 6px;">
+                        </div>
+                        
+                        <div class="config-group" id="bit-controls-group">
+                            <label>按位设置:</label><br>
+                            <div id="bitControls" style="margin-top: 8px;"></div>
+                        </div>
+                        
+                        <div class="config-buttons">
+                            <button onclick="applyInputPortConfig(this)">确定</button>
+                            <button onclick="cancelInputPortConfig(this)">取消</button>
+                        </div>
+                    </div>
+                `;
+                
+                dialog.style.cssText = `
+                    position: fixed;
+                    top: 0;
+                    left: 0;
+                    width: 100%;
+                    height: 100%;
+                    background: rgba(0,0,0,0.5);
+                    display: flex;
+                    justify-content: center;
+                    align-items: center;
+                    z-index: 10000;
+                `;
+                
+                dialog.querySelector('.config-dialog-content').style.cssText = `
+                    background: white;
+                    padding: 20px;
+                    border-radius: 12px;
+                    box-shadow: 0 8px 32px rgba(0,0,0,0.3);
+                    min-width: 400px;
+                    max-width: 500px;
+                `;
+                
+                dialog.dataset.componentId = id;
+                document.body.appendChild(dialog);
+                
+                // 生成按位控制按钮
+                updateBitControls(dialog);
+                
+                // 监听位宽变化
+                dialog.querySelector('#input-bitwidth-select').addEventListener('change', function() {
+                    const customInput = dialog.querySelector('#custom-bitwidth');
+                    if (this.value === 'custom') {
+                        customInput.style.display = 'inline';
+                        customInput.focus();
+                    } else {
+                        customInput.style.display = 'none';
+                        updateBitControls(dialog);
+                    }
+                });
+                
+                // 监听自定义位宽输入
+                dialog.querySelector('#custom-bitwidth').addEventListener('input', function() {
+                    updateBitControls(dialog);
+                });
+            }
+
+            // 显示输出端口配置对话框
+            function showOutputPortConfigDialog(component) {
+                const id = component.dataset.id;
+                const currentBitWidth = getComponentBitWidth(id);
+                const currentData = getComponentMultiBitData(id);
+                const currentBinary = getComponentBinaryString(id);
+
+                const dialog = document.createElement('div');
+                dialog.className = 'config-dialog';
+                dialog.innerHTML = `
+                    <div class="config-dialog-content">
+                        <h3>📤 输出端口配置</h3>
+                        <div class="config-group">
+                            <label>位宽设置:</label>
+                            <select id="output-bitwidth-select">
+                                <option value="1" ${currentBitWidth === 1 ? 'selected' : ''}>单位 (1bit)</option>
+                                <option value="2" ${currentBitWidth === 2 ? 'selected' : ''}>双位 (2bit)</option>
+                                <option value="4" ${currentBitWidth === 4 ? 'selected' : ''}>四位 (4bit)</option>
+                                <option value="8" ${currentBitWidth === 8 ? 'selected' : ''}>字节 (8bit)</option>
+                                <option value="16" ${currentBitWidth === 16 ? 'selected' : ''}>字 (16bit)</option>
+                                <option value="32" ${currentBitWidth === 32 ? 'selected' : ''}>双字 (32bit)</option>
+                                <option value="custom">自定义...</option>
+                            </select>
+                            <input type="number" id="output-custom-bitwidth" min="1" max="64" value="${currentBitWidth}" style="display:none; width:60px; margin-left:10px;">
+                        </div>
+
+                        <div class="config-group">
+                            <label>当前接收值:</label>
+                            <div style="background: #f0f0f0; padding: 8px; border-radius: 4px; margin: 5px 0; font-family: monospace;">
+                                二进制: ${currentBinary}
+                            </div>
+                            <div style="background: #e8f4fd; padding: 8px; border-radius: 4px; margin: 5px 0; font-size: 12px; color: #666;">
+                                💡 输出端口的值由连接的输入信号决定，无法手动设置
+                            </div>
+                        </div>
+
+                        <div class="config-group">
+                            <label>位宽说明:</label>
+                            <div style="background: #f8f9fa; padding: 8px; border-radius: 4px; margin: 5px 0; font-size: 12px; color: #666;">
+                                • 位宽决定了输出端口能接收的数据位数<br>
+                                • 当输入信号位宽与输出端口位宽不匹配时：<br>
+                                &nbsp;&nbsp;- 输入位宽 > 输出位宽：截取低位<br>
+                                &nbsp;&nbsp;- 输入位宽 < 输出位宽：高位补0
+                            </div>
+                        </div>
+
+                        <div class="config-buttons">
+                            <button onclick="applyOutputPortConfig(this)">确定</button>
+                            <button onclick="cancelOutputPortConfig(this)">取消</button>
+                        </div>
+                    </div>
+                `;
+
+                dialog.style.cssText = `
+                    position: fixed;
+                    top: 0;
+                    left: 0;
+                    width: 100%;
+                    height: 100%;
+                    background: rgba(0,0,0,0.5);
+                    display: flex;
+                    justify-content: center;
+                    align-items: center;
+                    z-index: 10000;
+                `;
+
+                dialog.querySelector('.config-dialog-content').style.cssText = `
+                    background: white;
+                    padding: 20px;
+                    border-radius: 12px;
+                    box-shadow: 0 8px 32px rgba(0,0,0,0.3);
+                    min-width: 400px;
+                    max-width: 500px;
+                `;
+
+                dialog.dataset.componentId = id;
+                document.body.appendChild(dialog);
+
+                // 监听位宽变化
+                dialog.querySelector('#output-bitwidth-select').addEventListener('change', function() {
+                    const customInput = dialog.querySelector('#output-custom-bitwidth');
+                    if (this.value === 'custom') {
+                        customInput.style.display = 'inline';
+                        customInput.focus();
+                    } else {
+                        customInput.style.display = 'none';
+                    }
+                });
             }
 
             // 隐藏右键菜单
@@ -2677,8 +3523,102 @@
             canvas.addEventListener('contextmenu', function (e) {
                 e.preventDefault();
             });
+
+            // 输入端口配置对话框支持函数
+            // 更新按位控制按钮
+            function updateBitControls(dialog) {
+                const bitWidthSelect = dialog.querySelector('#input-bitwidth-select');
+                const customInput = dialog.querySelector('#custom-bitwidth');
+                const componentId = dialog.dataset.componentId;
+                
+                let bitWidth;
+                if (bitWidthSelect.value === 'custom') {
+                    bitWidth = parseInt(customInput.value) || 1;
+                } else {
+                    bitWidth = parseInt(bitWidthSelect.value);
+                }
+                
+                const currentData = getComponentMultiBitData(componentId);
+                const bitControls = dialog.querySelector('#bitControls');
+                bitControls.innerHTML = '';
+                
+                for (let i = 0; i < bitWidth; i++) {
+                    const bitValue = i < currentData.length ? currentData[i] : 0;
+                    const button = document.createElement('button');
+                    button.textContent = `Bit${bitWidth-1-i}: ${bitValue}`;
+                    button.style.cssText = `
+                        margin: 2px;
+                        padding: 6px 12px;
+                        background: ${bitValue ? '#4CAF50' : '#f44336'};
+                        color: white;
+                        border: none;
+                        border-radius: 4px;
+                        cursor: pointer;
+                        font-size: 12px;
+                    `;
+                    button.onclick = () => toggleBitInDialog(dialog, i);
+                    bitControls.appendChild(button);
+                    
+                    // 每8个按钮换一行
+                    if ((i + 1) % 8 === 0) {
+                        bitControls.appendChild(document.createElement('br'));
+                    }
+                }
+            }
+            
+            // 在对话框中切换某一位的值
+            function toggleBitInDialog(dialog, bitIndex) {
+                const componentId = dialog.dataset.componentId;
+                const data = getComponentMultiBitData(componentId);
+                const newValue = (data[bitIndex] || 0) === 0 ? 1 : 0;
+                
+                // 更新数据
+                const newData = [...data];
+                newData[bitIndex] = newValue;
+                setComponentMultiBitData(componentId, newData);
+                
+                // 更新按钮显示
+                updateBitControls(dialog);
+                
+                // 更新当前值显示
+                updateCurrentValueDisplay(dialog);
+                
+                // 更新组件显示
+                updatePortDisplay(componentId);
+                
+                // 传播信号
+                const component = document.querySelector(`[data-id="${componentId}"]`);
+                if (component) {
+                    propagateSignal(component);
+                }
+            }
+            
+            // 更新当前值显示
+            function updateCurrentValueDisplay(dialog) {
+                const componentId = dialog.dataset.componentId;
+                const currentBinary = getComponentBinaryString(componentId);
+                
+                const valueDisplay = dialog.querySelector('.config-group div[style*="background: #f0f0f0"]');
+                if (valueDisplay) {
+                    valueDisplay.innerHTML = `二进制: ${currentBinary}`;
+                }
+            }
+
+            // 将必要的函数暴露到全局作用域
+            window.setComponentBitWidth = setComponentBitWidth;
+            window.getComponentBitWidth = getComponentBitWidth;
+            window.setComponentMultiBitData = setComponentMultiBitData;
+            window.getComponentMultiBitData = getComponentMultiBitData;
+            window.updatePortDisplay = updatePortDisplay;
+            window.propagateSignal = propagateSignal;
+            window.getComponentBinaryString = getComponentBinaryString;
+            window.showInputPortConfigDialog = showInputPortConfigDialog;
+            window.showOutputPortConfigDialog = showOutputPortConfigDialog;
+            
+            console.log('所有必要函数已暴露到全局作用域');
         });
     </script>
+
 </body>
 
 </html>

@@ -447,3 +447,172 @@ body {
     background-color: #e0e0e0;
     font-weight: bold;
 }
+
+/* 线路组件专用样式 */
+
+/* 引脚组件样式 */
+#pin-group {
+    transition: all 0.3s ease;
+}
+
+#pin-group rect {
+    filter: drop-shadow(0 2px 4px rgba(0,0,0,0.2));
+}
+
+#pin-group:hover rect {
+    filter: drop-shadow(0 4px 8px rgba(0,0,0,0.3));
+}
+
+/* 分线器样式 */
+#splitter-group {
+    transition: all 0.3s ease;
+}
+
+#splitter-group rect {
+    filter: drop-shadow(0 2px 4px rgba(0,0,0,0.2));
+}
+
+#splitter-group:hover rect {
+    filter: drop-shadow(0 4px 8px rgba(0,0,0,0.3));
+}
+
+/* 探针样式 */
+#probe-group {
+    transition: all 0.3s ease;
+}
+
+#probe-group rect {
+    filter: drop-shadow(0 2px 4px rgba(0,0,0,0.2));
+}
+
+#probe-group:hover rect {
+    filter: drop-shadow(0 4px 8px rgba(0,0,0,0.3));
+}
+
+#probe-value {
+    font-weight: bold;
+    transition: fill 0.3s ease;
+}
+
+#probe-label {
+    font-weight: bold;
+    fill: #333;
+}
+
+/* 电源和接地组件样式 */
+#power-group rect {
+    filter: drop-shadow(0 2px 4px rgba(0,0,0,0.2));
+    transition: all 0.3s ease;
+}
+
+#power-group:hover rect {
+    filter: drop-shadow(0 4px 8px rgba(0,0,0,0.3));
+    fill: #FF1744;
+}
+
+#ground-group rect {
+    filter: drop-shadow(0 2px 4px rgba(0,0,0,0.2));
+    transition: all 0.3s ease;
+}
+
+#ground-group:hover rect {
+    filter: drop-shadow(0 4px 8px rgba(0,0,0,0.3));
+    fill: #6A1B9A;
+}
+
+/* 特殊锚点样式 */
+.pin-anchor {
+    fill: #FFD700;
+    transition: all 0.3s ease;
+}
+
+.pin-anchor:hover {
+    fill: #FFA000;
+    transform: scale(1.2);
+}
+
+/* 配置对话框样式 */
+.config-dialog {
+    font-family: Arial, sans-serif;
+}
+
+.config-dialog-content {
+    background: white;
+    padding: 20px;
+    border-radius: 8px;
+    box-shadow: 0 4px 12px rgba(0,0,0,0.3);
+    min-width: 300px;
+    max-width: 400px;
+}
+
+.config-dialog h3 {
+    margin: 0 0 20px 0;
+    color: #333;
+    text-align: center;
+    border-bottom: 2px solid #2196F3;
+    padding-bottom: 10px;
+}
+
+.config-group {
+    margin-bottom: 15px;
+}
+
+.config-group label {
+    display: block;
+    margin-bottom: 5px;
+    font-weight: bold;
+    color: #555;
+}
+
+.config-group select,
+.config-group input {
+    width: 100%;
+    padding: 8px;
+    border: 1px solid #ddd;
+    border-radius: 4px;
+    font-size: 14px;
+    box-sizing: border-box;
+}
+
+.config-group select:focus,
+.config-group input:focus {
+    outline: none;
+    border-color: #2196F3;
+    box-shadow: 0 0 0 2px rgba(33, 150, 243, 0.2);
+}
+
+.config-buttons {
+    display: flex;
+    gap: 10px;
+    margin-top: 20px;
+}
+
+.config-buttons button {
+    flex: 1;
+    padding: 10px;
+    border: none;
+    border-radius: 4px;
+    font-size: 14px;
+    font-weight: bold;
+    cursor: pointer;
+    transition: all 0.3s ease;
+}
+
+.config-buttons button:first-child {
+    background: #2196F3;
+    color: white;
+}
+
+.config-buttons button:first-child:hover {
+    background: #1976D2;
+}
+
+.config-buttons button:last-child {
+    background: #f5f5f5;
+    color: #333;
+    border: 1px solid #ddd;
+}
+
+.config-buttons button:last-child:hover {
+    background: #e0e0e0;
+}
