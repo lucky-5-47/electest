@@ -160,7 +160,12 @@ const circuitLogicFunctions = {
             let inputValue = inputs[0] || 0;
             let inputBits = [];
 
+            console.log('=== 分线器拆分调试 ===');
+            console.log('分线器配置:', component.dataset.splitterPorts);
             console.log('分线器原始输入:', inputValue, '类型:', typeof inputValue, '是否为数组:', Array.isArray(inputValue));
+            console.log('分线器inputs数组:', inputs, 'inputs长度:', inputs.length);
+            console.log('inputs[0]详细信息:', inputs[0], '类型:', typeof inputs[0], '是否为数组:', Array.isArray(inputs[0]));
+            console.log('输出锚点信息:', outputAnchor ? outputAnchor.getAttribute('data-port') : 'null');
 
             // 如果输入是数组（多位数据），直接使用数组
             if (Array.isArray(inputValue)) {
@@ -183,6 +188,10 @@ const circuitLogicFunctions = {
                 for (let i = 0; i < inputBitWidth; i++) {
                     inputBits[i] = (inputValue >> (inputBitWidth - 1 - i)) & 1;
                 }
+                console.log('数值转位数组过程:');
+                console.log('  输入数值:', inputValue, '位宽:', inputBitWidth);
+                console.log('  二进制表示:', inputValue.toString(2).padStart(inputBitWidth, '0'));
+                console.log('  转换后位数组:', inputBits);
             }
 
             const inputBitWidth = portConfigs.find(p => p.type === 'input')?.bitWidth || 8;
@@ -215,13 +224,13 @@ const circuitLogicFunctions = {
                     const portConfig = outputPorts[outputIndex];
                     const bitWidth = portConfig.bitWidth || 1;
 
-                    // 计算该输出端口对应的位范围（从低位开始分配）
+                    // 计算该输出端口对应的位范围（从高位开始分配）
                     let bitStart = 0;
                     for (let i = 0; i < outputIndex; i++) {
                         bitStart += outputPorts[i].bitWidth || 1;
                     }
 
-                    // 从位数组中提取对应的位
+                    // 从位数组中提取对应的位（从高位开始）
                     const outputBits = [];
                     for (let bit = 0; bit < bitWidth; bit++) {
                         const bitIndex = bitStart + bit;
@@ -232,32 +241,33 @@ const circuitLogicFunctions = {
                         }
                     }
 
-                    // 计算数值用于显示
+                    // 计算数值用于显示（高位在前）
                     let portValue = 0;
                     for (let i = 0; i < outputBits.length; i++) {
-                        portValue |= (outputBits[i] << i);
+                        portValue |= (outputBits[i] << (bitWidth - 1 - i));
                     }
 
                     // 生成对应的二进制字符串用于调试
                     const portBits = outputBits.map(b => b.toString()).join('');
 
-                    // 计算位范围标签（用于显示）
-                    const bitRangeStart = bitStart;
-                    const bitRangeEnd = bitStart + bitWidth - 1;
-                    const bitRangeLabel = bitWidth === 1 ? `${bitRangeStart}` : `${bitRangeStart}-${bitRangeEnd}`;
+                    // 计算位范围标签（用于显示，从高位开始）
+                    const bitRangeStart = inputBitWidth - 1 - bitStart;
+                    const bitRangeEnd = inputBitWidth - bitStart - bitWidth;
+                    const bitRangeLabel = bitWidth === 1 ? `${bitRangeStart}` : `${bitRangeEnd}-${bitRangeStart}`;
 
                     console.log(`分线器拆分详细调试:`);
-                    console.log(`  输入位数组: [${inputBits.join(',')}]`);
+                    console.log(`  输入位数组: [${inputBits.join(',')}] (从高位到低位)`);
                     console.log(`  输入值: ${inputValue} (二进制: ${inputBinary})`);
                     console.log(`  输出索引: ${outputIndex}, 端口ID: ${outputAnchor?.getAttribute('data-port')}`);
-                    console.log(`  位起始: ${bitStart}, 位宽: ${bitWidth}, 位范围: ${bitRangeLabel}`);
+                    console.log(`  位起始索引: ${bitStart}, 位宽: ${bitWidth}, 位范围: ${bitRangeLabel}`);
                     console.log(`  位提取过程:`);
                     for (let bit = 0; bit < bitWidth; bit++) {
                         const bitIndex = bitStart + bit;
                         const bitValue = inputBits[bitIndex] || 0;
-                        console.log(`    位${bitIndex}: inputBits[${bitIndex}] = ${bitValue}, 放在输出位${bit}`);
+                        const actualBitPosition = inputBitWidth - 1 - bitIndex;
+                        console.log(`    输入位${actualBitPosition}: inputBits[${bitIndex}] = ${bitValue}, 放在输出位${bitWidth - 1 - bit}`);
                     }
-                    console.log(`  输出位数组: [${outputBits.join(',')}]`);
+                    console.log(`  输出位数组: [${outputBits.join(',')}] (从高位到低位)`);
                     console.log(`  最终输出: ${portValue} (二进制: ${portBits})`);
 
                     // 返回位数组而不是数值
@@ -498,6 +508,39 @@ function regenerateSplitterAnchors(component) {
     const mode = component.dataset.splitterMode || 'split';
     const portConfigs = JSON.parse(component.dataset.splitterPorts || '[]');
 
+    // 保存现有连接关系
+    const savedConnections = new Map();
+    const savedWires = [];
+    const oldAnchors = Array.from(component.querySelectorAll('.anchor'));
+
+    // 保存锚点连接
+    oldAnchors.forEach(oldAnchor => {
+        const anchorType = oldAnchor.getAttribute('data-anchor-type');
+        const portId = oldAnchor.getAttribute('data-port');
+
+        if (typeof window !== 'undefined' && window.anchorConnections && window.anchorConnections.has(oldAnchor)) {
+            savedConnections.set(`${anchorType}-${portId}`, window.anchorConnections.get(oldAnchor));
+        }
+    });
+
+    // 保存连线连接
+    if (typeof window !== 'undefined' && window.wires) {
+        window.wires.forEach(wire => {
+            if ((wire.start && oldAnchors.includes(wire.start)) ||
+                (wire.end && oldAnchors.includes(wire.end))) {
+                savedWires.push({
+                    wire: wire,
+                    startType: wire.start ? wire.start.getAttribute('data-anchor-type') : null,
+                    startPort: wire.start ? wire.start.getAttribute('data-port') : null,
+                    endType: wire.end ? wire.end.getAttribute('data-anchor-type') : null,
+                    endPort: wire.end ? wire.end.getAttribute('data-port') : null,
+                    isStartOnThisComponent: wire.start && oldAnchors.includes(wire.start),
+                    isEndOnThisComponent: wire.end && oldAnchors.includes(wire.end)
+                });
+            }
+        });
+    }
+
     // 清空现有锚点
     anchorsContainer.innerHTML = '';
 
@@ -550,6 +593,67 @@ function regenerateSplitterAnchors(component) {
             bitIndex += bitWidth;
         }
     });
+
+    // 恢复连接关系
+    const newAnchors = Array.from(component.querySelectorAll('.anchor'));
+
+    // 恢复锚点连接
+    newAnchors.forEach(newAnchor => {
+        const anchorType = newAnchor.getAttribute('data-anchor-type');
+        const portId = newAnchor.getAttribute('data-port');
+        const key = `${anchorType}-${portId}`;
+
+        if (savedConnections.has(key)) {
+            const connections = savedConnections.get(key);
+            if (typeof window !== 'undefined' && window.anchorConnections && connections) {
+                window.anchorConnections.set(newAnchor, [...connections]);
+
+                // 更新反向连接
+                connections.forEach(connectedAnchor => {
+                    if (window.anchorConnections.has(connectedAnchor)) {
+                        const reverseConnections = window.anchorConnections.get(connectedAnchor);
+                        // 移除旧锚点引用，添加新锚点引用
+                        const filteredConnections = reverseConnections.filter(anchor =>
+                            !oldAnchors.includes(anchor)
+                        );
+                        filteredConnections.push(newAnchor);
+                        window.anchorConnections.set(connectedAnchor, filteredConnections);
+                    }
+                });
+            }
+        }
+    });
+
+    // 恢复连线连接
+    savedWires.forEach(wireInfo => {
+        if (wireInfo.isStartOnThisComponent) {
+            const newStartAnchor = newAnchors.find(anchor =>
+                anchor.getAttribute('data-anchor-type') === wireInfo.startType &&
+                anchor.getAttribute('data-port') === wireInfo.startPort
+            );
+            if (newStartAnchor) {
+                wireInfo.wire.start = newStartAnchor;
+            }
+        }
+
+        if (wireInfo.isEndOnThisComponent) {
+            const newEndAnchor = newAnchors.find(anchor =>
+                anchor.getAttribute('data-anchor-type') === wireInfo.endType &&
+                anchor.getAttribute('data-port') === wireInfo.endPort
+            );
+            if (newEndAnchor) {
+                wireInfo.wire.end = newEndAnchor;
+            }
+        }
+    });
+
+    // 强制重新传播信号
+    setTimeout(() => {
+        if (typeof window !== 'undefined' && window.propagateSignal) {
+            console.log('分线器配置更新后重新传播信号');
+            window.propagateSignal();
+        }
+    }, 50);
 }
 
 // 显示引脚配置对话框
@@ -960,8 +1064,13 @@ function showSplitterConfigDialog(component) {
                 <label><strong>预设配置:</strong></label>
                 <select id="splitter-preset" style="margin: 5px 0; padding: 5px;">
                     <option value="">选择预设...</option>
+                    <option value="4-2x2">4位拆分为2位×2</option>
+                    <option value="5-2+3">5位拆分为2位+3位</option>
+                    <option value="5-1+4">5位拆分为1位+4位</option>
+                    <option value="6-2x3">6位拆分为2位×3</option>
                     <option value="8-4x2">8位拆分为4位×2</option>
                     <option value="8-2x4">8位拆分为2位×4</option>
+                    <option value="8-1+3+4">8位拆分为1位+3位+4位</option>
                     <option value="16-8x2">16位拆分为8位×2</option>
                     <option value="4x2-8">4位×2合并为8位</option>
                     <option value="2x4-8">2位×4合并为8位</option>
@@ -1091,6 +1200,39 @@ function applySplitterPreset() {
     let mode = 'split';
 
     switch (preset) {
+        case '4-2x2':
+            mode = 'split';
+            portsConfig = [
+                {type: 'input', bitWidth: 4, label: 'IN'},
+                {type: 'output', bitWidth: 2, label: 'O1'},
+                {type: 'output', bitWidth: 2, label: 'O2'}
+            ];
+            break;
+        case '5-2+3':
+            mode = 'split';
+            portsConfig = [
+                {type: 'input', bitWidth: 5, label: 'IN'},
+                {type: 'output', bitWidth: 2, label: 'O1'},
+                {type: 'output', bitWidth: 3, label: 'O2'}
+            ];
+            break;
+        case '5-1+4':
+            mode = 'split';
+            portsConfig = [
+                {type: 'input', bitWidth: 5, label: 'IN'},
+                {type: 'output', bitWidth: 1, label: 'O1'},
+                {type: 'output', bitWidth: 4, label: 'O2'}
+            ];
+            break;
+        case '6-2x3':
+            mode = 'split';
+            portsConfig = [
+                {type: 'input', bitWidth: 6, label: 'IN'},
+                {type: 'output', bitWidth: 2, label: 'O1'},
+                {type: 'output', bitWidth: 2, label: 'O2'},
+                {type: 'output', bitWidth: 2, label: 'O3'}
+            ];
+            break;
         case '8-4x2':
             mode = 'split';
             portsConfig = [
@@ -1107,6 +1249,15 @@ function applySplitterPreset() {
                 {type: 'output', bitWidth: 2, label: 'O2'},
                 {type: 'output', bitWidth: 2, label: 'O3'},
                 {type: 'output', bitWidth: 2, label: 'O4'}
+            ];
+            break;
+        case '8-1+3+4':
+            mode = 'split';
+            portsConfig = [
+                {type: 'input', bitWidth: 8, label: 'IN'},
+                {type: 'output', bitWidth: 1, label: 'O1'},
+                {type: 'output', bitWidth: 3, label: 'O2'},
+                {type: 'output', bitWidth: 4, label: 'O3'}
             ];
             break;
         case '16-8x2':
