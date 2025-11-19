@@ -188,13 +188,13 @@ const ls138LogicFunction = {
 
 // 74LS138说明对话框HTML
 const ls138DialogHTML = `
-<div id="ls138-dialog" class="component-dialog" style="display: none;">
-    <div class="dialog-content">
-        <div class="dialog-header">
-            <h2>74LS138 3线-8线译码器</h2>
-            <button class="dialog-close" onclick="closeLs138Dialog()">&times;</button>
+<div id="ls138-dialog" class="component-dialog draggable-dialog resizable-dialog" style="display: none; position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%); z-index: 10000; width: 800px; height: 600px; min-width: 600px; min-height: 400px;">
+    <div class="dialog-content" style="width: 100%; height: 100%; background: white; border: 2px solid #333; border-radius: 8px; box-shadow: 0 4px 20px rgba(0,0,0,0.3); display: flex; flex-direction: column;">
+        <div class="dialog-header" style="background: #2196F3; color: white; padding: 15px 20px; border-radius: 6px 6px 0 0; cursor: move; user-select: none; display: flex; justify-content: space-between; align-items: center; flex-shrink: 0;">
+            <h2 style="margin: 0; font-size: 1.5em;">74LS138 3线-8线译码器</h2>
+            <button class="dialog-close" onclick="closeLs138Dialog()" style="background: none; border: none; color: white; font-size: 24px; cursor: pointer; width: 30px; height: 30px; display: flex; align-items: center; justify-content: center; border-radius: 50%;">&times;</button>
         </div>
-        <div class="dialog-body">
+        <div class="dialog-body" style="padding: 20px; overflow-y: auto; flex: 1;">
             <div class="dialog-section">
                 <h3>功能描述</h3>
                 <p>74LS138是一个3线到8线译码器，具有3个使能输入端。当使能条件满足时，根据3位地址输入(A2、A1、A0)的组合，8个输出中只有一个被选中输出低电平，其余输出高电平。</p>
@@ -279,6 +279,8 @@ Y̅0̅~Y̅7̅ → 8个不同的设备使能端
                 </div>
             </div>
         </div>
+        <!-- 调整大小控制 -->
+        <div class="resize-handle" style="position: absolute; bottom: 0; right: 0; width: 20px; height: 20px; cursor: nw-resize; background: linear-gradient(-45deg, transparent 0%, transparent 30%, #ccc 30%, #ccc 40%, transparent 40%, transparent 60%, #ccc 60%, #ccc 70%, transparent 70%);"></div>
     </div>
 </div>
 `;
@@ -472,6 +474,11 @@ function showLs138Dialog() {
             }
         };
         document.addEventListener('keydown', escHandler);
+
+        // 添加拖动和调整大小功能
+        if (typeof window.makeDraggableAndResizable === 'function') {
+            window.makeDraggableAndResizable(dialog);
+        }
     }
 }
 

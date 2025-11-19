@@ -182,13 +182,13 @@ function initialize74LS151Component(componentDiv, type) {
 
 // 74LS151说明对话框HTML
 const ls151DialogHTML = `
-<div id="ls151-dialog" class="component-dialog" style="display: none;">
-    <div class="dialog-content">
-        <div class="dialog-header">
-            <h2>74LS151 8选1数据选择器</h2>
-            <button class="dialog-close" onclick="closeLs151Dialog()">&times;</button>
+<div id="ls151-dialog" class="component-dialog draggable-dialog resizable-dialog" style="display: none; position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%); z-index: 10000; width: 800px; height: 600px; min-width: 600px; min-height: 400px;">
+    <div class="dialog-content" style="width: 100%; height: 100%; background: white; border: 2px solid #333; border-radius: 8px; box-shadow: 0 4px 20px rgba(0,0,0,0.3); display: flex; flex-direction: column;">
+        <div class="dialog-header" style="background: #2196F3; color: white; padding: 15px 20px; border-radius: 6px 6px 0 0; cursor: move; user-select: none; display: flex; justify-content: space-between; align-items: center; flex-shrink: 0;">
+            <h2 style="margin: 0; font-size: 1.5em;">74LS151 8选1数据选择器</h2>
+            <button class="dialog-close" onclick="closeLs151Dialog()" style="background: none; border: none; color: white; font-size: 24px; cursor: pointer; width: 30px; height: 30px; display: flex; align-items: center; justify-content: center; border-radius: 50%;">&times;</button>
         </div>
-        <div class="dialog-body">
+        <div class="dialog-body" style="padding: 20px; overflow-y: auto; flex: 1;">
             <div class="dialog-section">
                 <h3>功能描述</h3>
                 <p>74LS151是一个8选1数据选择器(多路选择器)，具有3个地址输入端和1个使能输入端。当使能端有效时，根据3位地址输入(C、B、A)的组合，从8个数据输入中选择一个输出到Y端，同时W̅端输出Y的反相。</p>
@@ -255,6 +255,8 @@ const ls151DialogHTML = `
                 <p><small>注：X表示任意状态(0或1)，Dn表示对应数据输入的状态，D̅n̅表示对应数据输入的反相</small></p>
             </div>
         </div>
+        <!-- 调整大小控制 -->
+        <div class="resize-handle" style="position: absolute; bottom: 0; right: 0; width: 20px; height: 20px; cursor: nw-resize; background: linear-gradient(-45deg, transparent 0%, transparent 30%, #ccc 30%, #ccc 40%, transparent 40%, transparent 60%, #ccc 60%, #ccc 70%, transparent 70%);"></div>
     </div>
 </div>
 `;
@@ -286,7 +288,7 @@ const ls151DialogCSS = `
 }
 
 .dialog-header {
-    background: #4CAF50;
+    background: #2196F3;
     color: white;
     padding: 15px 20px;
     border-radius: 8px 8px 0 0;
@@ -329,8 +331,8 @@ const ls151DialogCSS = `
 }
 
 .dialog-section h3 {
-    color: #388E3C;
-    border-bottom: 2px solid #E8F5E8;
+    color: #1976D2;
+    border-bottom: 2px solid #E3F2FD;
     padding-bottom: 5px;
     margin-bottom: 15px;
 }
@@ -402,6 +404,11 @@ function showLs151Dialog() {
             }
         };
         document.addEventListener('keydown', escHandler);
+
+        // 添加拖动和调整大小功能
+        if (typeof window.makeDraggableAndResizable === 'function') {
+            window.makeDraggableAndResizable(dialog);
+        }
     }
 }
 

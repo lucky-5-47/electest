@@ -43,7 +43,31 @@
     <script src="74ls151.js"></script>
     <!-- 引入74LS161组件 -->
     <script src="74ls161.js"></script>
+    <!-- 引入74LS175组件 -->
+    <script src="74ls175.js"></script>
+    <!-- 引入74LS160组件 -->
+    <script src="74ls160.js"></script>
+    <!-- 引入74LS280组件 -->
+    <script src="74280.js"></script>
+    <!-- 引入74139组件 -->
+    <script src="74139.js"></script>
+    <!-- 引入模N计数器组件 -->
+    <script src="mod_n_counter.js"></script>
+    <!-- 引入二进制异步计数器组件 -->
+    <script src="binary-async-counter.js"></script>
+    <!-- 引入多数表决器组件 -->
+    <script src="majority-voter.js"></script>
+    <!-- 引入74LS153组件 -->
+    <script src="74ls153_final.js"></script>
 
+    <!-- 预初始化全局对象，确保外部脚本可以访问 -->
+    <script>
+        // 提前创建全局对象，避免外部脚本加载时找不到
+        window.componentSvgs = window.componentSvgs || {};
+        window.logicFunctions = window.logicFunctions || {};
+
+        console.log('全局对象预初始化完成');
+    </script>
 
     <!-- 修复下拉菜单层级问题 -->
     <style>
@@ -463,17 +487,47 @@
                 <details>
                     <summary>常见实验</summary>
                     <ul>
-                        <li data-type="74ls138">74LS138</li>
-                        <li data-type="74ls151">74LS151</li>
+                        <li data-type="74ls175">74LS175 四位寄存器</li>
                         <li>
                             <details>
                                 <summary>同步计数器</summary>
                                 <ul style="margin-left: 20px;">
+                                    <li data-type="74ls160">74LS160</li>
                                     <li data-type="74ls161">74LS161</li>
                                 </ul>
                             </details>
                         </li>
-                        <li data-type="divider">待定</li>
+                        <li data-type="mod-n-counter">模N计数器</li>
+                        <li>
+                            <details>
+                                <summary>多数表决器</summary>
+                                <ul style="margin-left: 20px;">
+                                    <li data-type="majority-voter-3">3输入表决器</li>
+                                    <li data-type="majority-voter-5">5输入表决器</li>
+                                    <li data-type="majority-voter-7">7输入表决器</li>
+                                </ul>
+                            </details>
+                        </li>
+                        <li data-type="binary-async-counter">异步二进制计数器</li>
+                        <li>
+                            <details>
+                                <summary>数据选择器</summary>
+                                <ul style="margin-left: 20px;">
+                                    <li data-type="74ls151">74LS151 8选1</li>
+                                    <li data-type="74ls153">74LS153 4选1</li>
+                                </ul>
+                            </details>
+                        </li>
+                        <li data-type="74280">74LS280 奇偶校验器</li>
+                        <li>
+                            <details>
+                                <summary>数据分配器</summary>
+                                <ul style="margin-left: 20px;">
+                                    <li data-type="74ls138">74LS138 1路-8路</li>
+                                    <li data-type="74139">74LS139 1路-4路</li>
+                                </ul>
+                            </details>
+                        </li>
                         <li data-type="complement">待定</li>
                     </ul>
                 </details>
@@ -506,6 +560,25 @@
             const toolbarItems = document.querySelectorAll('.toolbar-item');
             let startAnchor = null;
             let currentTool = null;
+
+            // 调试函数：检查74139组件加载状态
+            window.debug74139Status = function() {
+                console.log('=== 74139组件加载状态检查 ===');
+                console.log('window.ls139Component:', window.ls139Component);
+                console.log('window.ls139Logic:', window.ls139Logic);
+                console.log('componentSvgs["74139"]:', componentSvgs ? componentSvgs['74139'] : 'componentSvgs未定义');
+                console.log('window.componentSvgs["74139"]:', window.componentSvgs ? window.componentSvgs['74139'] : 'window.componentSvgs未定义');
+                console.log('logicFunctions["74139"]:', typeof logicFunctions !== 'undefined' ? logicFunctions['74139'] : 'logicFunctions未定义');
+                console.log('window.logicFunctions["74139"]:', window.logicFunctions ? window.logicFunctions['74139'] : 'window.logicFunctions未定义');
+                console.log('window.initialize74139Component:', typeof window.initialize74139Component);
+                console.log('===============================');
+            };
+
+            // 5秒后自动检查一次加载状态
+            setTimeout(() => {
+                console.log('自动检查74139组件加载状态:');
+                window.debug74139Status();
+            }, 5000);
 
             // 初始化磁吸功能
             const magneticSnap = new MagneticSnap({
@@ -547,6 +620,7 @@
                 path.setAttribute('fill', 'none');
                 path.setAttribute('stroke', 'black');
                 path.setAttribute('stroke-width', '2');
+                path.setAttribute('stroke-dasharray', 'none'); // 确保是实线
 
                 // 计算转弯路径
                 const pathData = calculateBentPath(startX, startY, endX, endY);
@@ -645,6 +719,8 @@
 
             // 存储所有元件的状态
             const componentStates = new Map();
+            // 将componentStates设为全局变量，以便配置对话框可以访问
+            window.componentStates = componentStates;
             // 存储输入/输出端口的位宽配置
             const componentBitWidth = new Map();
             // 存储多位数据端口的具体数值
@@ -655,6 +731,8 @@
             window.anchorConnections = anchorConnections;
             // 当前选中的元素
             let selectedElement = null;
+            // 鼠标下的组件
+            let hoveredComponent = null;
 
 
 
@@ -1195,8 +1273,163 @@
                 }, 300);
             }
 
+            // 集成74LS175组件的SVG模板
+            if (window.LS175Component && window.LS175Component.svg) {
+                componentSvgs['74ls175'] = window.LS175Component.svg;
+                window.componentSvgs['74ls175'] = window.LS175Component.svg;
+                console.log('74LS175 SVG模板已集成');
+            } else {
+                // 延迟集成，等待74LS175脚本加载完成
+                setTimeout(() => {
+                    if (window.LS175Component && window.LS175Component.svg) {
+                        componentSvgs['74ls175'] = window.LS175Component.svg;
+                        window.componentSvgs['74ls175'] = window.LS175Component.svg;
+                        console.log('延迟集成74LS175 SVG模板成功');
+                    } else {
+                        console.warn('74LS175组件SVG模板未找到，请检查74ls175.js文件');
+                    }
+                }, 300);
+            }
+
+            // 集成74LS160组件的SVG模板
+            if (window.LS160Component && window.LS160Component.svg) {
+                componentSvgs['74ls160'] = window.LS160Component.svg;
+                window.componentSvgs['74ls160'] = window.LS160Component.svg;
+                console.log('74LS160 SVG模板已集成');
+            } else {
+                // 延迟集成，等待74LS160脚本加载完成
+                setTimeout(() => {
+                    if (window.LS160Component && window.LS160Component.svg) {
+                        componentSvgs['74ls160'] = window.LS160Component.svg;
+                        window.componentSvgs['74ls160'] = window.LS160Component.svg;
+                        console.log('延迟集成74LS160 SVG模板成功');
+                    } else {
+                        console.warn('74LS160组件SVG模板未找到，请检查74ls160.js文件');
+                    }
+                }, 300);
+            }
+
+            // 集成74LS280组件的SVG模板
+            if (window.LS280Component && window.LS280Component.svg) {
+                componentSvgs['74280'] = window.LS280Component.svg;
+                window.componentSvgs['74280'] = window.LS280Component.svg;
+                console.log('74LS280 SVG模板已集成');
+            } else {
+                // 延迟集成，等待74280脚本加载完成
+                setTimeout(() => {
+                    if (window.LS280Component && window.LS280Component.svg) {
+                        componentSvgs['74280'] = window.LS280Component.svg;
+                        window.componentSvgs['74280'] = window.LS280Component.svg;
+                        console.log('延迟集成74LS280 SVG模板成功');
+                    } else {
+                        console.warn('74LS280组件SVG模板未找到，请检查74280.js文件');
+                    }
+                }, 300);
+            }
+
+            // 集成74139组件的SVG模板
+            if (window.ls139Component && window.ls139Component['74139']) {
+                componentSvgs['74139'] = window.ls139Component['74139'];
+                window.componentSvgs['74139'] = window.ls139Component['74139'];
+                console.log('74139 SVG模板已集成');
+            } else {
+                // 延迟集成，等待74139脚本加载完成
+                setTimeout(() => {
+                    if (window.ls139Component && window.ls139Component['74139']) {
+                        componentSvgs['74139'] = window.ls139Component['74139'];
+                        window.componentSvgs['74139'] = window.ls139Component['74139'];
+                        console.log('延迟集成74139 SVG模板成功');
+                    } else {
+                        console.warn('74139组件SVG模板未找到，请检查74139.js文件');
+                    }
+                }, 300);
+            }
+
+            // 集成模N计数器组件的SVG模板
+            if (window.ModNCounterComponent && window.ModNCounterComponent.svg) {
+                componentSvgs['mod-n-counter'] = window.ModNCounterComponent.svg;
+                window.componentSvgs['mod-n-counter'] = window.ModNCounterComponent.svg;
+                console.log('模N计数器 SVG模板已集成');
+            } else {
+                // 延迟集成，等待模N计数器脚本加载完成
+                setTimeout(() => {
+                    if (window.ModNCounterComponent && window.ModNCounterComponent.svg) {
+                        componentSvgs['mod-n-counter'] = window.ModNCounterComponent.svg;
+                        window.componentSvgs['mod-n-counter'] = window.ModNCounterComponent.svg;
+                        console.log('延迟集成模N计数器 SVG模板成功');
+                    } else {
+                        console.warn('模N计数器组件SVG模板未找到，请检查mod_n_counter.js文件');
+                    }
+                }, 300);
+            }
+
+            // 集成二进制异步计数器组件的SVG模板
+            if (window.BinaryAsyncCounterComponent && window.BinaryAsyncCounterComponent.svg) {
+                componentSvgs['binary-async-counter'] = window.BinaryAsyncCounterComponent.svg;
+                window.componentSvgs['binary-async-counter'] = window.BinaryAsyncCounterComponent.svg;
+                console.log('二进制异步计数器 SVG模板已集成');
+            } else {
+                // 延迟集成，等待异步计数器脚本加载完成
+                setTimeout(() => {
+                    if (window.BinaryAsyncCounterComponent && window.BinaryAsyncCounterComponent.svg) {
+                        componentSvgs['binary-async-counter'] = window.BinaryAsyncCounterComponent.svg;
+                        window.componentSvgs['binary-async-counter'] = window.BinaryAsyncCounterComponent.svg;
+                        console.log('延迟集成异步计数器 SVG模板成功');
+                    } else {
+                        console.warn('异步计数器组件SVG模板未找到，请检查binary-async-counter.js文件');
+                    }
+                }, 300);
+            }
+
+            // 集成多数表决器组件的SVG模板
+            if (window.MajorityVoterComponent && window.MajorityVoterComponent.svgs) {
+                Object.assign(componentSvgs, window.MajorityVoterComponent.svgs);
+                Object.assign(window.componentSvgs, window.MajorityVoterComponent.svgs);
+                console.log('多数表决器 SVG模板已集成');
+            } else {
+                // 延迟集成，等待多数表决器脚本加载完成
+                setTimeout(() => {
+                    if (window.MajorityVoterComponent && window.MajorityVoterComponent.svgs) {
+                        Object.assign(componentSvgs, window.MajorityVoterComponent.svgs);
+                        Object.assign(window.componentSvgs, window.MajorityVoterComponent.svgs);
+                        console.log('延迟集成多数表决器 SVG模板成功');
+                    } else {
+                        console.warn('多数表决器组件SVG模板未找到，请检查majority-voter.js文件');
+                    }
+                }, 300);
+            }
+
+            // 集成74LS153组件的SVG模板
+            console.log('检查74LS153组件:', window.LS153Component);
+            if (window.LS153Component && window.LS153Component.svg) {
+                componentSvgs['74ls153'] = window.LS153Component.svg;
+                window.componentSvgs['74ls153'] = window.LS153Component.svg;
+                console.log('74LS153 SVG模板已集成');
+            } else {
+                // 延迟集成，等待74LS153脚本加载完成
+                setTimeout(() => {
+                    if (window.LS153Component && window.LS153Component.svg) {
+                        componentSvgs['74ls153'] = window.LS153Component.svg;
+                        window.componentSvgs['74ls153'] = window.LS153Component.svg;
+                        console.log('延迟集成74LS153 SVG模板成功');
+                    } else {
+                        console.warn('74LS153组件SVG模板未找到，尝试更长延迟...');
+                        // 尝试更长的延迟
+                        setTimeout(() => {
+                            if (window.LS153Component && window.LS153Component.svg) {
+                                componentSvgs['74ls153'] = window.LS153Component.svg;
+                                window.componentSvgs['74ls153'] = window.LS153Component.svg;
+                                console.log('74LS153 SVG模板最终集成成功');
+                            } else {
+                                console.error('74LS153组件SVG模板最终未找到，请检查74ls153_final.js文件');
+                            }
+                        }, 1000);
+                    }
+                }, 300);
+            }
+
             // 时序逻辑组件的SVG模板已经直接定义在componentSvgs中
-            console.log('时序逻辑组件SVG模板已加载:', ['jk-flipflop', 't-flipflop', 'tp-flipflop', 'counter', 'rs-latch']);
+            console.log('时序逻辑组件SVG模板已加载:', ['jk-flipflop', 't-flipflop', 'tp-flipflop', 'counter', 'binary-async-counter', 'rs-latch']);
 
             // 调试函数：检查组件加载状态
             function checkComponentStatus() {
@@ -1452,6 +1685,142 @@
                 }, 200);
             }
 
+            // 集成74LS175组件的逻辑函数
+            if (window.LS175Component && window.LS175Component.logic) {
+                logicFunctions['74ls175'] = window.LS175Component.logic;
+                console.log('74LS175逻辑函数已集成');
+            } else {
+                // 延迟集成，等待74LS175脚本加载完成
+                setTimeout(() => {
+                    if (window.LS175Component && window.LS175Component.logic) {
+                        logicFunctions['74ls175'] = window.LS175Component.logic;
+                        window.logicFunctions['74ls175'] = window.LS175Component.logic;
+                        console.log('延迟集成74LS175逻辑函数成功');
+                    } else {
+                        console.warn('74LS175组件逻辑函数未找到，请检查74ls175.js文件');
+                    }
+                }, 200);
+            }
+
+            // 集成74LS160组件的逻辑函数
+            if (window.LS160Component && window.LS160Component.logic) {
+                logicFunctions['74ls160'] = window.LS160Component.logic;
+                console.log('74LS160逻辑函数已集成');
+            } else {
+                // 延迟集成，等待74LS160脚本加载完成
+                setTimeout(() => {
+                    if (window.LS160Component && window.LS160Component.logic) {
+                        logicFunctions['74ls160'] = window.LS160Component.logic;
+                        window.logicFunctions['74ls160'] = window.LS160Component.logic;
+                        console.log('延迟集成74LS160逻辑函数成功');
+                    } else {
+                        console.warn('74LS160组件逻辑函数未找到，请检查74ls160.js文件');
+                    }
+                }, 200);
+            }
+
+            // 集成74LS280组件的逻辑函数
+            if (window.LS280Component && window.LS280Component.logic) {
+                logicFunctions['74280'] = window.LS280Component.logic;
+                console.log('74LS280逻辑函数已集成');
+            } else {
+                // 延迟集成，等待74280脚本加载完成
+                setTimeout(() => {
+                    if (window.LS280Component && window.LS280Component.logic) {
+                        logicFunctions['74280'] = window.LS280Component.logic;
+                        window.logicFunctions['74280'] = window.LS280Component.logic;
+                        console.log('延迟集成74LS280逻辑函数成功');
+                    } else {
+                        console.warn('74LS280组件逻辑函数未找到，请检查74280.js文件');
+                    }
+                }, 200);
+            }
+
+            // 集成74139组件的逻辑函数
+            if (window.ls139Logic && window.ls139Logic['74139']) {
+                logicFunctions['74139'] = window.ls139Logic['74139'];
+                console.log('74139逻辑函数已集成');
+            } else {
+                // 延迟集成，等待74139脚本加载完成
+                setTimeout(() => {
+                    if (window.ls139Logic && window.ls139Logic['74139']) {
+                        logicFunctions['74139'] = window.ls139Logic['74139'];
+                        window.logicFunctions['74139'] = window.ls139Logic['74139'];
+                        console.log('延迟集成74139逻辑函数成功');
+                    } else {
+                        console.warn('74139组件逻辑函数未找到，请检查74139.js文件');
+                    }
+                }, 200);
+            }
+
+            // 集成模N计数器组件的逻辑函数
+            if (window.ModNCounterComponent && window.ModNCounterComponent.logic) {
+                logicFunctions['mod-n-counter'] = window.ModNCounterComponent.logic;
+                console.log('模N计数器逻辑函数已集成');
+            } else {
+                // 延迟集成，等待模N计数器脚本加载完成
+                setTimeout(() => {
+                    if (window.ModNCounterComponent && window.ModNCounterComponent.logic) {
+                        logicFunctions['mod-n-counter'] = window.ModNCounterComponent.logic;
+                        window.logicFunctions['mod-n-counter'] = window.ModNCounterComponent.logic;
+                        console.log('延迟集成模N计数器逻辑函数成功');
+                    } else {
+                        console.warn('模N计数器组件逻辑函数未找到，请检查mod_n_counter.js文件');
+                    }
+                }, 200);
+            }
+
+            // 集成二进制异步计数器组件的逻辑函数
+            if (window.BinaryAsyncCounterComponent && window.BinaryAsyncCounterComponent.logic) {
+                logicFunctions['binary-async-counter'] = window.BinaryAsyncCounterComponent.logic;
+                console.log('二进制异步计数器逻辑函数已集成');
+            } else {
+                // 延迟集成，等待异步计数器脚本加载完成
+                setTimeout(() => {
+                    if (window.BinaryAsyncCounterComponent && window.BinaryAsyncCounterComponent.logic) {
+                        logicFunctions['binary-async-counter'] = window.BinaryAsyncCounterComponent.logic;
+                        window.logicFunctions['binary-async-counter'] = window.BinaryAsyncCounterComponent.logic;
+                        console.log('延迟集成异步计数器逻辑函数成功');
+                    } else {
+                        console.warn('异步计数器组件逻辑函数未找到，请检查binary-async-counter.js文件');
+                    }
+                }, 200);
+            }
+
+            // 集成多数表决器组件的逻辑函数
+            if (window.MajorityVoterComponent && window.MajorityVoterComponent.logic) {
+                Object.assign(logicFunctions, window.MajorityVoterComponent.logic);
+                console.log('多数表决器逻辑函数已集成');
+            } else {
+                // 延迟集成，等待多数表决器脚本加载完成
+                setTimeout(() => {
+                    if (window.MajorityVoterComponent && window.MajorityVoterComponent.logic) {
+                        Object.assign(logicFunctions, window.MajorityVoterComponent.logic);
+                        Object.assign(window.logicFunctions, window.MajorityVoterComponent.logic);
+                        console.log('延迟集成多数表决器逻辑函数成功');
+                    } else {
+                        console.warn('多数表决器组件逻辑函数未找到，请检查majority-voter.js文件');
+                    }
+                }, 200);
+            }
+
+            // 集成74LS153组件的逻辑函数
+            if (window.LS153Component && window.LS153Component.logic) {
+                logicFunctions['74ls153'] = window.LS153Component.logic;
+                console.log('74LS153逻辑函数已集成');
+            } else {
+                // 延迟集成，等待74LS153脚本加载完成
+                setTimeout(() => {
+                    if (window.LS153Component && window.LS153Component.logic) {
+                        logicFunctions['74ls153'] = window.LS153Component.logic;
+                        window.logicFunctions['74ls153'] = window.LS153Component.logic;
+                        console.log('延迟集成74LS153逻辑函数成功');
+                    } else {
+                        console.warn('74LS153组件逻辑函数未找到，请检查74ls153_final.js文件');
+                    }
+                }, 200);
+            }
+
             // 多位数据处理的辅助函数
             
             // 获取组件的位宽
@@ -1587,7 +1956,7 @@
                         currentTool = 'text';
                         canvas.style.cursor = 'text';
                         console.log('文字工具已激活 - 点击画布添加文字');
-                    } else if (['input', 'output', 'and-gate', 'or-gate', 'not-gate', 'xor-gate', 'nand-gate', 'd-flipflop', 'jk-flipflop', 't-flipflop', 'tp-flipflop', 'counter', 'rs-latch', 'adder', 'subtractor', 'divider', 'complement', 'push-button', 'switch', 'led-diode', 'clock', 'pin', 'splitter', 'probe', 'power', 'ground'].includes(tool)) {
+                    } else if (['input', 'output', 'and-gate', 'or-gate', 'not-gate', 'xor-gate', 'nand-gate', 'd-flipflop', 'jk-flipflop', 't-flipflop', 'tp-flipflop', '74ls175', 'counter', 'binary-async-counter', 'rs-latch', 'adder', 'subtractor', 'divider', 'complement', 'push-button', 'switch', 'led-diode', 'clock', 'pin', 'splitter', 'probe', 'power', 'ground', 'majority-voter-3', 'majority-voter-5', 'majority-voter-7', '74ls153'].includes(tool)) {
                         // 元件工具
                         this.classList.add('active');
                         currentTool = tool;
@@ -1835,7 +2204,116 @@
                     } else if (window.LS161Component && window.LS161Component.initialize) {
                         window.LS161Component.initialize(componentDiv, type);
                     }
-                }else if (['pin', 'splitter', 'probe', 'power', 'ground'].includes(type)) {
+                } else if (type === '74ls175') {
+                    // 74LS175四位并行寄存器初始化
+                    const id = componentDiv.dataset.id;
+                    // 初始化输出状态
+                    componentStates.set(id, {
+                        CLR: 1, CLK: 0,
+                        D1: 0, D2: 0, D3: 0, D4: 0,
+                        Q1: 0, Q2: 0, Q3: 0, Q4: 0,
+                        NQ1: 1, NQ2: 1, NQ3: 1, NQ4: 1,
+                        prevCLK: 0
+                    });
+
+                    // 调用74LS175组件的初始化函数
+                    if (window.initialize74LS175Component) {
+                        window.initialize74LS175Component(componentDiv, type);
+                    } else if (window.LS175Component && window.LS175Component.initialize) {
+                        window.LS175Component.initialize(componentDiv, type);
+                    }
+                } else if (type === '74ls160') {
+                    // 74LS160同步十进制计数器初始化
+                    const id = componentDiv.dataset.id;
+                    // 初始化输出状态
+                    componentStates.set(id, {
+                        RD: 1, CP: 0, LD: 1, EP: 0, ET: 0,
+                        A0: 0, A1: 0, A2: 0, A3: 0,
+                        Q0: 0, Q1: 0, Q2: 0, Q3: 0,
+                        RCO: 0, prevCP: 0
+                    });
+
+                    // 调用74LS160组件的初始化函数
+                    if (window.initialize74LS160Component) {
+                        window.initialize74LS160Component(componentDiv, type);
+                    } else if (window.LS160Component && window.LS160Component.initialize) {
+                        window.LS160Component.initialize(componentDiv, type);
+                    }
+                } else if (type === '74280') {
+                    // 74LS280奇偶校验器初始化
+                    componentStates.set(componentDiv.dataset.id, {
+                        A: 0, B: 0, C: 0, D: 0, E: 0, F: 0, G: 0, H: 0, I: 0,
+                        FEV: 1, FOD: 0  // 初始状态：0个1，偶校验有效
+                    });
+
+                    // 调用74LS280组件的初始化函数
+                    if (window.initialize74280Component) {
+                        window.initialize74280Component(componentDiv, type);
+                    } else if (window.LS280Component && window.LS280Component.initialize) {
+                        window.LS280Component.initialize(componentDiv, type);
+                    }
+                } else if (type === '74139') {
+                    // 74139 1路-4路数据分配器初始化
+                    componentStates.set(componentDiv.dataset.id, {
+                        D: 1, A1: 0, A0: 0,  // D/EN'默认为1（禁用状态）
+                        Y0: 1, Y1: 1, Y2: 1, Y3: 1  // 初始输出全为1
+                    });
+
+                    // 调用74139组件的初始化函数
+                    if (window.initialize74139Component) {
+                        window.initialize74139Component(componentDiv, type);
+                    }
+                } else if (type === 'mod-n-counter') {
+                    // 模N计数器初始化
+                    componentStates.set(componentDiv.dataset.id, {
+                        Q0: 0, Q1: 0, Q2: 0, Q3: 0,
+                        RCO: 0, prevCLK: 0, modValue: 5
+                    });
+
+                    // 调用模N计数器组件的初始化函数
+                    if (window.ModNCounterComponent && window.ModNCounterComponent.initialize) {
+                        window.ModNCounterComponent.initialize(componentDiv, type);
+                    }
+                } else if (type === 'binary-async-counter') {
+                    // 二进制异步计数器初始化
+                    componentStates.set(componentDiv.dataset.id, {
+                        CLK: 0, RST: 1,
+                        Q0: 0, Q1: 0, Q2: 0, Q3: 0,
+                        OVF: 0,
+                        prevCLK: 0, prevQ0: 0, prevQ1: 0, prevQ2: 0,
+                        count: 0
+                    });
+
+                    // 调用异步计数器组件的初始化函数
+                    if (window.BinaryAsyncCounterComponent && window.BinaryAsyncCounterComponent.initialize) {
+                        window.BinaryAsyncCounterComponent.initialize(componentDiv, type);
+                    }
+                } else if (type.startsWith('majority-voter')) {
+                    // 多数表决器初始化
+                    const inputCount = type === 'majority-voter-5' ? 5 : (type === 'majority-voter-7' ? 7 : 3);
+                    const initialState = { Y: 0 };
+                    
+                    // 根据输入数量初始化输入状态
+                    const inputLabels = ['A', 'B', 'C', 'D', 'E', 'F', 'G'];
+                    for (let i = 0; i < inputCount; i++) {
+                        initialState[inputLabels[i]] = 0;
+                    }
+
+                    componentStates.set(componentDiv.dataset.id, initialState);
+
+                    // 调用多数表决器组件的初始化函数
+                    if (window.MajorityVoterComponent && window.MajorityVoterComponent.initialize) {
+                        window.MajorityVoterComponent.initialize(componentDiv, type);
+                    }
+                } else if (type === '74ls153') {
+                    // 74LS153初始化
+                    componentStates.set(componentDiv.dataset.id, { Y: 0 });
+
+                    // 调用74LS153组件的初始化函数
+                    if (window.LS153Component && window.LS153Component.initialize) {
+                        window.LS153Component.initialize(componentDiv, type);
+                    }
+                } else if (['pin', 'splitter', 'probe', 'power', 'ground'].includes(type)) {
                     // 线路组件初始化
                     window.CircuitComponents.initialize(componentDiv, type);
                     // 设置初始状态
@@ -2235,8 +2713,31 @@
             // 从侧边栏创建元件的函数
             function createComponentFromSidebar(type) {
                 if (!componentSvgs[type]) {
-                    console.error(`无法创建组件 ${type}：SVG模板未找到`);
-                    return;
+                    console.warn(`组件 ${type} 的SVG模板未找到，尝试延迟创建...`);
+
+                    // 对于特定组件，尝试延迟创建
+                    if (type === '74139') {
+                        // 尝试等待74139模块加载
+                        let attempts = 0;
+                        const maxAttempts = 5;
+                        const retryCreate = () => {
+                            attempts++;
+                            if (componentSvgs[type]) {
+                                console.log(`74139组件SVG模板已加载，创建组件（尝试次数: ${attempts}）`);
+                                createComponentFromSidebar(type);
+                            } else if (attempts < maxAttempts) {
+                                setTimeout(retryCreate, 200 * attempts);
+                            } else {
+                                console.error(`无法创建组件 ${type}：SVG模板在${maxAttempts}次尝试后仍未找到`);
+                                alert(`无法创建${type}组件，请刷新页面重试`);
+                            }
+                        };
+                        setTimeout(retryCreate, 100);
+                        return;
+                    } else {
+                        console.error(`无法创建组件 ${type}：SVG模板未找到`);
+                        return;
+                    }
                 }
 
                 // 创建元件容器
@@ -2272,8 +2773,8 @@
                     isDraggingWire = true;
                     dragStartAnchor = e.target;
 
-                    // 高亮起始锚点
-                    dragStartAnchor.setAttribute('r', '8');
+                    // 高亮起始锚点（保持正常大小）
+                    dragStartAnchor.setAttribute('r', '5');
 
                     // 获取起始锚点坐标
                     const startRect = dragStartAnchor.getBoundingClientRect();
@@ -2288,9 +2789,9 @@
                     tempWire = document.createElementNS('http://www.w3.org/2000/svg', 'path');
                     tempWire.setAttribute('class', 'wire');
                     tempWire.setAttribute('fill', 'none');
-                    tempWire.setAttribute('stroke', '#ff0000'); // 红色临时线
+                    tempWire.setAttribute('stroke', '#666'); // 灰色临时线
                     tempWire.setAttribute('stroke-dasharray', '5,5'); // 虚线
-                    tempWire.setAttribute('stroke-width', '3'); // 增加线宽便于观察
+                    tempWire.setAttribute('stroke-width', '2'); // 正常线宽
                     tempWire.setAttribute('d', `M ${startX} ${startY} L ${startX + 1} ${startY + 1}`);
                     wireLayer.appendChild(tempWire);
 
@@ -2316,9 +2817,9 @@
                     tempWire = document.createElementNS('http://www.w3.org/2000/svg', 'path');
                     tempWire.setAttribute('class', 'wire');
                     tempWire.setAttribute('fill', 'none');
-                    tempWire.setAttribute('stroke', '#ff0000'); // 红色临时线
+                    tempWire.setAttribute('stroke', '#666'); // 灰色临时线
                     tempWire.setAttribute('stroke-dasharray', '5,5'); // 虚线
-                    tempWire.setAttribute('stroke-width', '3'); // 增加线宽便于观察
+                    tempWire.setAttribute('stroke-width', '2'); // 正常线宽
                     tempWire.setAttribute('d', `M ${clickX} ${clickY} L ${clickX + 1} ${clickY + 1}`);
                     wireLayer.appendChild(tempWire);
 
@@ -2329,6 +2830,9 @@
 
             // 鼠标移动事件 - 更新临时连线
             document.addEventListener('mousemove', function (e) {
+                // 追踪鼠标下的组件
+                hoveredComponent = e.target.closest('.component');
+
                 if (isDraggingWire && tempWire && dragStartPoint) {
                     const canvasRect = canvas.getBoundingClientRect();
                     let mouseX = e.clientX - canvasRect.left;
@@ -2343,13 +2847,34 @@
                         mouseX = snapResult.relativeX;
                         mouseY = snapResult.relativeY;
 
-                        // 当磁吸到锚点时，让连线端点更明显地指向目标
+                        // 当磁吸到锚点时，使用橙色连线样式表示即将连接
                         tempWire.setAttribute('stroke', '#FF9800');
                         tempWire.setAttribute('stroke-width', '3');
+                        tempWire.setAttribute('stroke-dasharray', 'none'); // 移除虚线
+
+                        // 高亮目标锚点
+                        if (snapResult.anchor) {
+                            snapResult.anchor.setAttribute('r', '6');
+                            snapResult.anchor.setAttribute('fill', '#FF9800');
+                            snapResult.anchor.setAttribute('stroke', '#FFF');
+                            snapResult.anchor.setAttribute('stroke-width', '2');
+                        }
                     } else {
                         // 恢复正常连线样式
                         tempWire.setAttribute('stroke', '#666');
                         tempWire.setAttribute('stroke-width', '2');
+                        tempWire.setAttribute('stroke-dasharray', '5,5'); // 保持虚线表示未连接
+
+                        // 恢复所有锚点的正常样式（除了起始锚点）
+                        const allAnchors = canvas.querySelectorAll('.anchor');
+                        allAnchors.forEach(anchor => {
+                            if (anchor !== dragStartAnchor) {
+                                anchor.setAttribute('r', '4');
+                                anchor.setAttribute('fill', 'black');
+                                anchor.setAttribute('stroke', 'none');
+                                anchor.setAttribute('stroke-width', '0');
+                            }
+                        });
                     }
 
                     // 更新临时连线路径，支持转弯
@@ -2374,7 +2899,7 @@
 
                     // 恢复起始锚点状态
                     if (dragStartAnchor) {
-                        dragStartAnchor.setAttribute('r', '5');
+                        dragStartAnchor.setAttribute('r', '4'); // 恢复到原始大小
                         dragStartAnchor = null;
                     }
 
@@ -2384,6 +2909,15 @@
                         dragStartWire.setAttribute('stroke-width', '2');
                         dragStartWire = null;
                     }
+
+                    // 恢复所有锚点的正常样式
+                    const allAnchors = canvas.querySelectorAll('.anchor');
+                    allAnchors.forEach(anchor => {
+                        anchor.setAttribute('r', '4');
+                        anchor.setAttribute('fill', 'black');
+                        anchor.setAttribute('stroke', 'none');
+                        anchor.setAttribute('stroke-width', '0');
+                    });
 
                     // 重置状态
                     isDraggingWire = false;
@@ -2409,7 +2943,7 @@
 
                     // 恢复起始锚点状态
                     if (dragStartAnchor) {
-                        dragStartAnchor.setAttribute('r', '5');
+                        dragStartAnchor.setAttribute('r', '4'); // 恢复到原始大小
                         dragStartAnchor = null;
                     }
 
@@ -2419,6 +2953,15 @@
                         dragStartWire.setAttribute('stroke-width', '2');
                         dragStartWire = null;
                     }
+
+                    // 恢复所有锚点的正常样式
+                    const allAnchors = canvas.querySelectorAll('.anchor');
+                    allAnchors.forEach(anchor => {
+                        anchor.setAttribute('r', '4');
+                        anchor.setAttribute('fill', 'black');
+                        anchor.setAttribute('stroke', 'none');
+                        anchor.setAttribute('stroke-width', '0');
+                    });
 
                     // 重置状态
                     isDraggingWire = false;
@@ -2634,9 +3177,18 @@
 
                     // 恢复起始锚点状态
                     if (dragStartAnchor) {
-                        dragStartAnchor.setAttribute('r', '5');
+                        dragStartAnchor.setAttribute('r', '4'); // 恢复到原始大小
                         dragStartAnchor = null;
                     }
+
+                    // 恢复所有锚点的正常样式
+                    const allAnchors = canvas.querySelectorAll('.anchor');
+                    allAnchors.forEach(anchor => {
+                        anchor.setAttribute('r', '4');
+                        anchor.setAttribute('fill', 'black');
+                        anchor.setAttribute('stroke', 'none');
+                        anchor.setAttribute('stroke-width', '0');
+                    });
 
                     // 隐藏所有磁吸指示器
                     magneticSnap.hideAllIndicators();
@@ -3102,6 +3654,120 @@
 
                         // 继续传播信号
                         propagateSignal(targetComponent);
+                    } else if (targetType === '74ls175') {
+                        // 74LS175四位并行寄存器处理
+                        const inputs = get74LS175InputStates(targetComponent);
+                        const currentState = componentStates.get(targetId) || {};
+                        const outputState = logicFunctions['74ls175'](inputs, currentState);
+                        componentStates.set(targetId, outputState);
+
+                        console.log(`74LS175 ${targetId} 输入:`, inputs, '输出:', outputState);
+
+                        // 继续传播信号
+                        propagateSignal(targetComponent);
+                    } else if (targetType === '74ls160') {
+                        // 74LS160同步十进制计数器处理
+                        const inputs = get74LS160InputStates(targetComponent);
+                        const currentState = componentStates.get(targetId) || {};
+                        const outputState = logicFunctions['74ls160'](inputs, currentState);
+                        componentStates.set(targetId, outputState);
+
+                        console.log(`74LS160 ${targetId} 输入:`, inputs, '输出:', outputState);
+
+                        // 继续传播信号
+                        propagateSignal(targetComponent);
+                    } else if (targetType === 'mod-n-counter') {
+                        // 模N计数器处理
+                        const inputs = getModNCounterInputStates(targetComponent);
+                        const currentState = componentStates.get(targetId) || {
+                            Q0: 0, Q1: 0, Q2: 0, Q3: 0,
+                            RCO: 0, prevCLK: 0, modValue: 5
+                        };
+                        const outputState = logicFunctions['mod-n-counter'](inputs, currentState);
+                        componentStates.set(targetId, outputState);
+
+                        console.log(`模N计数器 ${targetId} 输入:`, inputs, '输出:', outputState);
+
+                        // 继续传播信号
+                        propagateSignal(targetComponent);
+                    } else if (targetType === 'binary-async-counter') {
+                        // 二进制异步计数器处理
+                        const inputs = getBinaryAsyncCounterInputStates(targetComponent);
+                        const currentState = componentStates.get(targetId) || {
+                            CLK: 0, RST: 1,
+                            Q0: 0, Q1: 0, Q2: 0, Q3: 0,
+                            OVF: 0,
+                            prevCLK: 0, prevQ0: 0, prevQ1: 0, prevQ2: 0,
+                            count: 0
+                        };
+                        const outputState = logicFunctions['binary-async-counter'](inputs, currentState);
+                        componentStates.set(targetId, outputState);
+
+                        // 更新显示
+                        if (window.BinaryAsyncCounterComponent && window.BinaryAsyncCounterComponent.updateDisplay) {
+                            window.BinaryAsyncCounterComponent.updateDisplay(targetComponent);
+                        }
+
+                        console.log(`异步计数器 ${targetId} 输入:`, inputs, '输出:', outputState);
+
+                        // 继续传播信号
+                        propagateSignal(targetComponent);
+                    } else if (targetType.startsWith('majority-voter')) {
+                        // 多数表决器处理
+                        const inputs = getMajorityVoterInputStates(targetComponent);
+                        const outputState = logicFunctions[targetType](inputs);
+                        componentStates.set(targetId, outputState);
+
+                        // 更新显示
+                        if (window.MajorityVoterComponent && window.MajorityVoterComponent.updateDisplay) {
+                            window.MajorityVoterComponent.updateDisplay(targetComponent, targetType);
+                        }
+
+                        console.log(`多数表决器 ${targetId} 输入:`, inputs, '输出:', outputState);
+
+                        // 继续传播信号
+                        propagateSignal(targetComponent);
+                    } else if (targetType === '74ls153') {
+                        // 74LS153处理
+                        const inputs = get74LS153InputStates(targetComponent);
+                        const outputState = logicFunctions['74ls153'](inputs);
+                        componentStates.set(targetId, outputState);
+
+                        console.log(`74LS153 ${targetId} 输入:`, inputs, '输出:', outputState);
+
+                        // 更新显示 - 确保在状态设置后立即更新
+                        if (window.updateLS153Display) {
+                            window.updateLS153Display(targetComponent);
+                        } else {
+                            console.warn('updateLS153Display函数未找到');
+                        }
+
+                        // 继续传播信号
+                        propagateSignal(targetComponent);
+                    } else if (targetType === '74280') {
+                        // 74LS280奇偶校验器处理
+                        const inputs = get74280InputStates(targetComponent);
+                        const outputState = logicFunctions['74280'](inputs);
+                        componentStates.set(targetId, outputState);
+
+                        console.log(`74LS280 ${targetId} 输入:`, inputs, '输出:', outputState);
+
+                        // 继续传播信号
+                        propagateSignal(targetComponent);
+                    } else if (targetType === '74139') {
+                        // 74139数据分配器处理
+                        const inputs = get74139InputStates(targetComponent);
+                        const outputState = logicFunctions['74139'](inputs);
+                        componentStates.set(targetId, outputState);
+
+                        console.log(`74139 ${targetId} 输入:`, inputs, '输出:', outputState);
+                        console.log(`74139 ${targetId} 地址计算: (${inputs.A1} << 1) | ${inputs.A0} = ${(inputs.A1 << 1) | inputs.A0}`);
+
+                        // 更新显示
+                        updateComponentDisplay(targetComponent, outputState);
+
+                        // 继续传播信号
+                        propagateSignal(targetComponent);
                     } else {
                         // 普通逻辑门只有一个输出
                         componentStates.set(targetId, outputState);
@@ -3109,7 +3775,7 @@
                     }
 
                     // 继续传播信号
-                    if (!['74ls138', '74ls151', '74ls161'].includes(targetType)) {
+                    if (!['74ls138', '74ls151', '74ls161', '74ls175', '74ls160', '74280', '74139', 'mod-n-counter'].includes(targetType)) {
                         propagateSignal(targetComponent);
                     }
                 }
@@ -3128,8 +3794,9 @@
                 if (type === 'input') {
                     // 输入端口返回多位数据数组
                     const multiData = getComponentMultiBitData(id);
-                    console.log(`getComponentOutputState for input (ID: ${id}):`, multiData);
-                    return multiData;
+                    const singleValue = Array.isArray(multiData) ? multiData[0] : multiData;
+                    console.log(`getComponentOutputState for input (ID: ${id}):`, 'multiData=', multiData, 'singleValue=', singleValue);
+                    return singleValue;
                 } else if (type === 'output' || type === 'clock' || type === 'push-button' || type === 'switch' || type === 'led-diode') {
                     const state = componentStates.get(id);
                     return state;
@@ -3256,6 +3923,122 @@
                         '0': 'Q2',     // Q2输出
                         '20': 'Q3',    // Q3输出
                         '60': 'RCO'    // RCO进位输出
+                    };
+                    const outputPin = outputMapping[anchorY.toString()];
+                    return outputPin ? (state[outputPin] || 0) : 0;
+                } else if (type === '74ls175') {
+                    // 74LS175四位并行寄存器有8个输出，需要根据输出锚点确定返回哪个值
+                    const state = componentStates.get(id);
+                    if (!state || !outputAnchor) return 0; // 默认返回0（低电平）
+
+                    // 根据锚点的data-pin属性确定输出
+                    const pinName = outputAnchor.getAttribute('data-pin');
+                    if (pinName && state[pinName] !== undefined) {
+                        return state[pinName];
+                    }
+
+                    // 如果没有data-pin属性，根据锚点位置确定输出
+                    const anchorY = parseInt(outputAnchor.getAttribute('cy'));
+                    const outputMapping = {
+                        '-40': 'Q1',   // Q1输出
+                        '-20': 'Q2',   // Q2输出
+                        '0': 'Q3',     // Q3输出
+                        '20': 'Q4',    // Q4输出
+                        '60': 'NQ1',   // \Q1输出
+                        '80': 'NQ2',   // \Q2输出
+                        '100': 'NQ3',  // \Q3输出
+                        '120': 'NQ4'   // \Q4输出
+                    };
+                    const outputPin = outputMapping[anchorY.toString()];
+                    return outputPin ? (state[outputPin] || 0) : 0;
+                } else if (type === '74ls160') {
+                    // 74LS160同步十进制计数器有5个输出，需要根据输出锚点确定返回哪个值
+                    const state = componentStates.get(id);
+                    if (!state || !outputAnchor) return 0; // 默认返回0（低电平）
+
+                    // 根据锚点的data-pin属性确定输出
+                    const pinName = outputAnchor.getAttribute('data-pin');
+                    if (pinName && state[pinName] !== undefined) {
+                        return state[pinName];
+                    }
+
+                    // 如果没有data-pin属性，根据锚点位置确定输出
+                    const anchorY = parseInt(outputAnchor.getAttribute('cy'));
+                    const outputMapping = {
+                        '-40': 'Q0',   // Q0输出
+                        '-20': 'Q1',   // Q1输出
+                        '0': 'Q2',     // Q2输出
+                        '20': 'Q3',    // Q3输出
+                        '60': 'RCO'    // RCO进位输出
+                    };
+                    const outputPin = outputMapping[anchorY.toString()];
+                    return outputPin ? (state[outputPin] || 0) : 0;
+                } else if (type === '74280') {
+                    // 74LS280奇偶校验器有2个输出，需要根据输出锚点确定返回哪个值
+                    const state = componentStates.get(id);
+                    if (!state || !outputAnchor) return 0; // 默认返回0（低电平）
+
+                    // 根据锚点的data-pin属性确定输出
+                    const pinName = outputAnchor.getAttribute('data-pin');
+                    if (pinName && state[pinName] !== undefined) {
+                        return state[pinName];
+                    }
+
+                    // 如果没有data-pin属性，根据锚点位置确定输出
+                    const anchorY = parseInt(outputAnchor.getAttribute('cy'));
+                    const outputMapping = {
+                        '-40': 'FEV',  // 偶校验输出
+                        '40': 'FOD'    // 奇校验输出
+                    };
+                    const outputPin = outputMapping[anchorY.toString()];
+                    return outputPin ? (state[outputPin] || 0) : 0;
+                } else if (type === '74139') {
+                    // 74139数据分配器有4个输出，需要根据输出锚点确定返回哪个值
+                    const state = componentStates.get(id);
+                    if (!state || !outputAnchor) return 0; // 默认返回0（低电平）
+
+                    // 根据锚点的data-pin属性确定输出
+                    const pinName = outputAnchor.getAttribute('data-pin');
+                    if (pinName && state[pinName] !== undefined) {
+                        return state[pinName];
+                    }
+
+                    // 如果没有data-pin属性，根据锚点位置确定输出
+                    const anchorY = parseInt(outputAnchor.getAttribute('cy'));
+                    const outputMapping = {
+                        '-40': 'Y0',  // Y0输出
+                        '-20': 'Y1',  // Y1输出
+                        '0': 'Y2',    // Y2输出
+                        '20': 'Y3'    // Y3输出
+                    };
+                    const outputPin = outputMapping[anchorY.toString()];
+                    return outputPin ? (state[outputPin] || 0) : 0;
+                } else if (type === '74ls153') {
+                    // 74LS153数据选择器只有一个输出Y
+                    const state = componentStates.get(id);
+                    if (!state) return 0; // 默认返回0（低电平）
+
+                    console.log(`getComponentOutputState for 74LS153 (ID: ${id}):`, state);
+                    return state.Y || 0;
+                } else if (type === 'mod-n-counter') {
+                    // 模N计数器有5个输出，需要根据输出锚点确定返回哪个值
+                    const state = componentStates.get(id);
+                    if (!state || !outputAnchor) return 0; // 默认返回0（低电平）
+
+                    // 根据锚点的data-pin属性确定输出
+                    const pinName = outputAnchor.getAttribute('data-pin');
+                    if (pinName && state[pinName] !== undefined) {
+                        return state[pinName];
+                    }
+
+                    // 如果没有data-pin属性，根据锚点位置确定输出
+                    const anchorY = parseInt(outputAnchor.getAttribute('cy'));
+                    const outputMapping = {
+                        '-40': 'Q3',   // Q3输出
+                        '-20': 'Q2',   // Q2输出
+                        '0': 'Q1',     // Q1输出
+                        '20': 'Q0',    // Q0输出
+                        '40': 'RCO'    // RCO进位输出
                     };
                     const outputPin = outputMapping[anchorY.toString()];
                     return outputPin ? (state[outputPin] || 0) : 0;
@@ -3543,6 +4326,451 @@
                 return inputs;
             }
 
+            // 获取74LS175组件的命名输入状态
+            function get74LS175InputStates(component) {
+                const inputAnchors = Array.from(component.querySelectorAll('.input-anchor'));
+                const inputs = {};
+
+                inputAnchors.forEach(inputAnchor => {
+                    const pinName = inputAnchor.getAttribute('data-pin');
+                    if (!pinName) return;
+
+                    const signalSources = [];
+
+                    // 检查直接连接的锚点
+                    if (anchorConnections.has(inputAnchor)) {
+                        const sourceAnchors = anchorConnections.get(inputAnchor);
+                        sourceAnchors.forEach(sourceAnchor => {
+                            const sourceComp = sourceAnchor.closest('.component');
+                            if (sourceComp) {
+                                const state = getComponentOutputState(sourceComp, sourceAnchor);
+                                // 处理多位数据，转换为十进制值
+                                if (Array.isArray(state)) {
+                                    const decimalValue = state.reduce((acc, bit, index) => {
+                                        return acc + bit * Math.pow(2, state.length - 1 - index);
+                                    }, 0);
+                                    signalSources.push(decimalValue);
+                                } else {
+                                    signalSources.push(state);
+                                }
+                            }
+                        });
+                    }
+
+                    // 检查连线连接
+                    const connectingWires = wires.filter(wire => wire.end === inputAnchor);
+                    connectingWires.forEach(wire => {
+                        if (wire.start) {
+                            const sourceComp = wire.start.closest('.component');
+                            if (sourceComp) {
+                                const state = getComponentOutputState(sourceComp, wire.start);
+                                // 处理多位数据，转换为十进制值
+                                if (Array.isArray(state)) {
+                                    const decimalValue = state.reduce((acc, bit, index) => {
+                                        return acc + bit * Math.pow(2, state.length - 1 - index);
+                                    }, 0);
+                                    signalSources.push(decimalValue);
+                                } else {
+                                    signalSources.push(state);
+                                }
+                            }
+                        }
+                    });
+
+                    // 设置输入值
+                    if (signalSources.length > 1) {
+                        inputs[pinName] = signalSources.some(state => state === 1) ? 1 : 0;
+                    } else if (signalSources.length === 1) {
+                        inputs[pinName] = signalSources[0];
+                    } else {
+                        inputs[pinName] = 0; // 默认无连接为低电平
+                    }
+                });
+
+                return inputs;
+            }
+
+            // 获取74LS160组件的命名输入状态
+            function get74LS160InputStates(component) {
+                const inputAnchors = Array.from(component.querySelectorAll('.input-anchor'));
+                const inputs = {};
+
+                inputAnchors.forEach(inputAnchor => {
+                    const pinName = inputAnchor.getAttribute('data-pin');
+                    if (!pinName) return;
+
+                    const signalSources = [];
+
+                    // 检查直接连接的锚点
+                    if (anchorConnections.has(inputAnchor)) {
+                        const sourceAnchors = anchorConnections.get(inputAnchor);
+                        sourceAnchors.forEach(sourceAnchor => {
+                            const sourceComp = sourceAnchor.closest('.component');
+                            if (sourceComp) {
+                                const state = getComponentOutputState(sourceComp, sourceAnchor);
+                                // 处理多位数据，转换为十进制值
+                                if (Array.isArray(state)) {
+                                    const decimalValue = state.reduce((acc, bit, index) => {
+                                        return acc + bit * Math.pow(2, state.length - 1 - index);
+                                    }, 0);
+                                    signalSources.push(decimalValue);
+                                } else {
+                                    signalSources.push(state);
+                                }
+                            }
+                        });
+                    }
+
+                    // 检查连线连接
+                    const connectingWires = wires.filter(wire => wire.end === inputAnchor);
+                    connectingWires.forEach(wire => {
+                        if (wire.start) {
+                            const sourceComp = wire.start.closest('.component');
+                            if (sourceComp) {
+                                const state = getComponentOutputState(sourceComp, wire.start);
+                                if (Array.isArray(state)) {
+                                    const decimalValue = state.reduce((acc, bit, index) => {
+                                        return acc + bit * Math.pow(2, state.length - 1 - index);
+                                    }, 0);
+                                    signalSources.push(decimalValue);
+                                } else {
+                                    signalSources.push(state);
+                                }
+                            }
+                        }
+                    });
+
+                    // 设置输入值
+                    if (signalSources.length > 1) {
+                        inputs[pinName] = signalSources.some(state => state === 1) ? 1 : 0;
+                    } else if (signalSources.length === 1) {
+                        inputs[pinName] = signalSources[0];
+                    } else {
+                        inputs[pinName] = 0; // 默认无连接为低电平
+                    }
+                });
+
+                return inputs;
+            }
+
+            // 获取74LS280组件的命名输入状态
+            function get74280InputStates(component) {
+                const inputAnchors = Array.from(component.querySelectorAll('.input-anchor'));
+                const inputs = {};
+
+                inputAnchors.forEach(inputAnchor => {
+                    const pinName = inputAnchor.getAttribute('data-pin');
+                    if (!pinName) return;
+
+                    const signalSources = [];
+
+                    // 检查直接连接的锚点
+                    if (anchorConnections.has(inputAnchor)) {
+                        const sourceAnchors = anchorConnections.get(inputAnchor);
+                        sourceAnchors.forEach(sourceAnchor => {
+                            const sourceComp = sourceAnchor.closest('.component');
+                            if (sourceComp) {
+                                const state = getComponentOutputState(sourceComp, sourceAnchor);
+                                signalSources.push(state);
+                            }
+                        });
+                    }
+
+                    // 检查连线连接
+                    const connectingWires = wires.filter(wire => wire.end === inputAnchor);
+                    connectingWires.forEach(wire => {
+                        if (wire.start) {
+                            const sourceComp = wire.start.closest('.component');
+                            if (sourceComp) {
+                                const state = getComponentOutputState(sourceComp, wire.start);
+                                signalSources.push(state);
+                            }
+                        }
+                    });
+
+                    // 设置输入值（对于74LS280，所有输入都是单比特）
+                    if (signalSources.length > 1) {
+                        inputs[pinName] = signalSources.some(state => state === 1) ? 1 : 0;
+                    } else if (signalSources.length === 1) {
+                        inputs[pinName] = signalSources[0] || 0;
+                    } else {
+                        inputs[pinName] = 0; // 默认无连接为低电平
+                    }
+                });
+
+                return inputs;
+            }
+
+            // 获取74139组件的命名输入状态
+            function get74139InputStates(component) {
+                const inputAnchors = Array.from(component.querySelectorAll('.input-anchor'));
+                const inputs = {};
+
+                inputAnchors.forEach(inputAnchor => {
+                    const pinName = inputAnchor.getAttribute('data-pin');
+                    if (!pinName) return;
+
+                    const signalSources = [];
+
+                    // 检查直接连接的锚点
+                    if (anchorConnections.has(inputAnchor)) {
+                        const sourceAnchors = anchorConnections.get(inputAnchor);
+                        sourceAnchors.forEach(sourceAnchor => {
+                            const sourceComp = sourceAnchor.closest('.component');
+                            if (sourceComp) {
+                                const sourceType = sourceComp.dataset.type;
+                                const sourceId = sourceComp.dataset.id;
+                                const sourceState = getComponentOutputState(sourceComp, sourceAnchor);
+                                signalSources.push(sourceState);
+                            }
+                        });
+                    }
+
+                    // 检查连线连接
+                    const connectingWires = wires.filter(wire => wire.end === inputAnchor);
+                    connectingWires.forEach(wire => {
+                        if (wire.start) {
+                            const sourceComp = wire.start.closest('.component');
+                            if (sourceComp) {
+                                const sourceState = getComponentOutputState(sourceComp, wire.start);
+                                signalSources.push(sourceState);
+                            }
+                        }
+                    });
+
+                    // 设置输入值（对于74139，所有输入都是单比特）
+                    if (signalSources.length > 1) {
+                        inputs[pinName] = signalSources.some(state => state === 1) ? 1 : 0;
+                    } else if (signalSources.length === 1) {
+                        inputs[pinName] = signalSources[0] || 0;
+                    } else {
+                        inputs[pinName] = 0; // 默认无连接为低电平
+                    }
+                });
+
+                return inputs;
+            }
+
+            // 获取模N计数器组件的命名输入状态
+            function getModNCounterInputStates(component) {
+                const inputAnchors = Array.from(component.querySelectorAll('.input-anchor'));
+                const inputs = {};
+
+                inputAnchors.forEach(inputAnchor => {
+                    const pinName = inputAnchor.getAttribute('data-pin');
+                    if (!pinName) return;
+
+                    const signalSources = [];
+
+                    // 检查直接连接的锚点
+                    if (anchorConnections.has(inputAnchor)) {
+                        const connectedAnchors = anchorConnections.get(inputAnchor);
+                        for (const connectedAnchor of connectedAnchors) {
+                            const sourceComponent = connectedAnchor.closest('.component');
+                            if (sourceComponent) {
+                                const sourceState = getComponentOutputState(sourceComponent, connectedAnchor);
+                                signalSources.push(sourceState);
+                            }
+                        }
+                    }
+
+                    // 检查分支连线连接
+                    const branchWires = wires.filter(wire => wire.end === inputAnchor);
+                    for (const wire of branchWires) {
+                        if (wire.branchFrom) {
+                            const originalWire = wires.find(w => w.line === wire.branchFrom);
+                            if (originalWire && originalWire.start) {
+                                const sourceComponent = originalWire.start.closest('.component');
+                                if (sourceComponent) {
+                                    const sourceState = getComponentOutputState(sourceComponent, originalWire.start);
+                                    signalSources.push(sourceState);
+                                }
+                            }
+                        }
+                    }
+
+                    // 设置输入值
+                    if (signalSources.length > 1) {
+                        inputs[pinName] = signalSources.some(state => state === 1) ? 1 : 0;
+                    } else if (signalSources.length === 1) {
+                        inputs[pinName] = signalSources[0];
+                    } else {
+                        // 对于CLR'信号，默认为高电平（不清零）；其他信号默认为低电平
+                        inputs[pinName] = (pinName === 'CLR') ? 1 : 0;
+                    }
+                });
+
+                // 获取模数配置
+                const componentId = component.dataset.id;
+                const currentState = componentStates.get(componentId) || {};
+                inputs.MOD = currentState.modValue || 5; // 默认模5
+
+                return inputs;
+            }
+
+            // 获取二进制异步计数器组件的命名输入状态
+            function getBinaryAsyncCounterInputStates(component) {
+                const inputAnchors = Array.from(component.querySelectorAll('.input-anchor'));
+                const inputs = {};
+
+                inputAnchors.forEach(inputAnchor => {
+                    const pinName = inputAnchor.getAttribute('data-pin');
+                    if (!pinName) return;
+
+                    const signalSources = [];
+
+                    // 检查直接连接的锚点
+                    if (anchorConnections.has(inputAnchor)) {
+                        const connectedAnchors = anchorConnections.get(inputAnchor);
+                        for (const connectedAnchor of connectedAnchors) {
+                            const sourceComponent = connectedAnchor.closest('.component');
+                            if (sourceComponent) {
+                                const sourceState = getComponentOutputState(sourceComponent, connectedAnchor);
+                                signalSources.push(sourceState);
+                            }
+                        }
+                    }
+
+                    // 检查分支连线连接
+                    const branchWires = wires.filter(wire => wire.end === inputAnchor);
+                    for (const wire of branchWires) {
+                        if (wire.branchFrom) {
+                            const originalWire = wires.find(w => w.line === wire.branchFrom);
+                            if (originalWire && originalWire.start) {
+                                const sourceComponent = originalWire.start.closest('.component');
+                                if (sourceComponent) {
+                                    const sourceState = getComponentOutputState(sourceComponent, originalWire.start);
+                                    signalSources.push(sourceState);
+                                }
+                            }
+                        }
+                    }
+
+                    // 设置输入值
+                    if (signalSources.length > 1) {
+                        inputs[pinName] = signalSources.some(state => state === 1) ? 1 : 0;
+                    } else if (signalSources.length === 1) {
+                        inputs[pinName] = signalSources[0];
+                    } else {
+                        // RST'默认为高电平（不复位），CLK默认为低电平
+                        inputs[pinName] = (pinName === 'RST') ? 1 : 0;
+                    }
+                });
+
+                return inputs;
+            }
+
+            // 获取多数表决器组件的命名输入状态
+            function getMajorityVoterInputStates(component) {
+                const inputAnchors = Array.from(component.querySelectorAll('.input-anchor'));
+                const inputs = {};
+                const inputLabels = ['A', 'B', 'C', 'D', 'E', 'F', 'G'];
+
+                inputAnchors.forEach((inputAnchor, index) => {
+                    const pinName = inputAnchor.getAttribute('data-pin') || inputLabels[index];
+                    const signalSources = [];
+
+                    // 检查直接连接的锚点
+                    if (anchorConnections.has(inputAnchor)) {
+                        const connectedAnchors = anchorConnections.get(inputAnchor);
+                        for (const connectedAnchor of connectedAnchors) {
+                            const sourceComponent = connectedAnchor.closest('.component');
+                            if (sourceComponent) {
+                                const sourceState = getComponentOutputState(sourceComponent, connectedAnchor);
+                                signalSources.push(sourceState);
+                            }
+                        }
+                    }
+
+                    // 检查分支连线连接
+                    const branchWires = wires.filter(wire => wire.end === inputAnchor);
+                    for (const wire of branchWires) {
+                        if (wire.branchFrom) {
+                            const originalWire = wires.find(w => w.line === wire.branchFrom);
+                            if (originalWire && originalWire.start) {
+                                const sourceComponent = originalWire.start.closest('.component');
+                                if (sourceComponent) {
+                                    const sourceState = getComponentOutputState(sourceComponent, originalWire.start);
+                                    signalSources.push(sourceState);
+                                }
+                            }
+                        }
+                    }
+
+                    // 设置输入值
+                    if (signalSources.length > 1) {
+                        inputs[pinName] = signalSources.some(state => state === 1) ? 1 : 0;
+                    } else if (signalSources.length === 1) {
+                        inputs[pinName] = signalSources[0];
+                    } else {
+                        inputs[pinName] = 0; // 默认为低电平
+                    }
+                });
+
+                return inputs;
+            }
+
+            // 获取74LS153组件的命名输入状态
+            function get74LS153InputStates(component) {
+                const inputAnchors = Array.from(component.querySelectorAll('.input-anchor'));
+                const inputs = {};
+
+                console.log('74LS153输入状态获取 - 找到锚点数量:', inputAnchors.length);
+
+                inputAnchors.forEach(inputAnchor => {
+                    const pinName = inputAnchor.getAttribute('data-pin');
+                    const signalSources = [];
+
+                    console.log(`检查引脚 ${pinName}:`);
+
+                    // 检查直接连接的锚点
+                    if (anchorConnections.has(inputAnchor)) {
+                        const connectedAnchors = anchorConnections.get(inputAnchor);
+                        console.log(`  - 直接连接的锚点数量: ${connectedAnchors ? connectedAnchors.size : 0}`);
+                        if (connectedAnchors) {
+                            for (const connectedAnchor of connectedAnchors) {
+                                const sourceComponent = connectedAnchor.closest('.component');
+                                if (sourceComponent) {
+                                    const sourceState = getComponentOutputState(sourceComponent, connectedAnchor);
+                                    signalSources.push(sourceState);
+                                    console.log(`  - 直接连接源状态: ${sourceState}`);
+                                }
+                            }
+                        }
+                    } else {
+                        console.log(`  - 直接连接的锚点数量: 0`);
+                    }
+
+                    // 检查通过连线连接的信号
+                    const connectingWires = wires.filter(wire => wire.end === inputAnchor);
+                    console.log(`  - 连线数量: ${connectingWires.length}`);
+                    connectingWires.forEach(wire => {
+                        if (wire.start) {
+                            const sourceComponent = wire.start.closest('.component');
+                            if (sourceComponent) {
+                                const sourceState = getComponentOutputState(sourceComponent, wire.start);
+                                signalSources.push(sourceState);
+                                console.log(`  - 连线源状态: ${sourceState}`);
+                            }
+                        }
+                    });
+
+                    // 设置输入值
+                    if (signalSources.length > 1) {
+                        inputs[pinName] = signalSources.some(state => state === 1) ? 1 : 0;
+                    } else if (signalSources.length === 1) {
+                        inputs[pinName] = signalSources[0];
+                    } else {
+                        inputs[pinName] = 0; // 默认为低电平
+                    }
+
+                    console.log(`  - 最终值: ${inputs[pinName]}`);
+                });
+
+                console.log('74LS153最终输入状态:', inputs);
+                return inputs;
+            }
+
             // 更新元件显示
             function updateComponentDisplay(component, state) {
                 const type = component.dataset.type;
@@ -3597,6 +4825,9 @@
                     // LED二极管显示更新
                     updateLEDDisplay(component, state);
                     // 不再调用外部组件的更新函数，避免冲突
+                } else if (type === '74139') {
+                    // 74139数据分配器显示更新
+                    update74139Display(component, state);
                 } else if (['jk-flipflop', 't-flipflop', 'tp-flipflop', 'counter', 'rs-latch'].includes(type)) {
                     // 时序逻辑组件显示更新
                     if (type === 'jk-flipflop' && window.JKFlipFlopComponent && window.JKFlipFlopComponent.updateDisplay) {
@@ -3611,6 +4842,23 @@
                         window.RSLatchComponent.updateDisplay(component, state);
                     }
                 }
+            }
+
+            // 更新74139数据分配器显示
+            function update74139Display(component, state) {
+                if (!state) return;
+
+                // 更新所有输出锚点的颜色
+                const outputAnchors = component.querySelectorAll('.output-anchor');
+                outputAnchors.forEach(anchor => {
+                    const pinName = anchor.getAttribute('data-pin');
+                    if (pinName && state[pinName] !== undefined) {
+                        // 根据输出状态设置颜色：0=绿色(低电平)，1=红色(高电平)
+                        anchor.setAttribute('fill', state[pinName] === 0 ? 'green' : 'red');
+                    }
+                });
+
+                console.log(`74139显示更新: Y0=${state.Y0}, Y1=${state.Y1}, Y2=${state.Y2}, Y3=${state.Y3}`);
             }
 
             // 更新运算器组件显示
@@ -5137,14 +6385,13 @@
                 
                 dialog.style.cssText = `
                     position: fixed;
-                    top: 0;
-                    left: 0;
-                    width: 100%;
-                    height: 100%;
-                    background: rgba(0,0,0,0.5);
-                    display: flex;
-                    justify-content: center;
-                    align-items: center;
+                    top: 50%;
+                    left: 50%;
+                    transform: translate(-50%, -50%);
+                    width: auto;
+                    height: auto;
+                    background: none;
+                    display: block;
                     z-index: 10000;
                 `;
                 
@@ -5236,14 +6483,13 @@
 
                 dialog.style.cssText = `
                     position: fixed;
-                    top: 0;
-                    left: 0;
-                    width: 100%;
-                    height: 100%;
-                    background: rgba(0,0,0,0.5);
-                    display: flex;
-                    justify-content: center;
-                    align-items: center;
+                    top: 50%;
+                    left: 50%;
+                    transform: translate(-50%, -50%);
+                    width: auto;
+                    height: auto;
+                    background: none;
+                    display: block;
                     z-index: 10000;
                 `;
 
@@ -5512,33 +6758,42 @@
                     }
                     return;
                 }
-                // 旋转功能
-                else if (selectedElement && selectedElement.classList.contains('component')) {
-                    const svg = selectedElement.querySelector('svg');
-                    if (!svg) return;
-                    
-                    let rotation = parseInt(selectedElement.dataset.rotation) || 0;
-                    const scale = parseFloat(selectedElement.dataset.scale) || 1;
-                    
-                    if (e.key === 'ArrowUp') {
-                        rotation = (rotation + 90) % 360;
-                    } else if (e.key === 'ArrowDown') {
-                        rotation = (rotation - 90) % 360;
-                    } else {
-                        return;
-                    }
-                    
-                    e.preventDefault();
-                    selectedElement.dataset.rotation = rotation;
-                    svg.style.transform = `rotate(${rotation}deg) scale(${scale})`;
-                    
-                    // 更新所有连线位置
-                    wires.forEach(wire => {
-                        if (wire.start && wire.start.closest('.component') === selectedElement || 
-                            wire.end && wire.end.closest('.component') === selectedElement) {
-                            updateWirePosition(wire);
+
+                // 旋转功能 - 处理方向键
+                if (e.key === 'ArrowUp' || e.key === 'ArrowDown' || e.key === 'ArrowRight' || e.key === 'ArrowLeft') {
+                    // 优先使用选中的组件，其次使用鼠标下的组件
+                    const targetComponent = selectedElement || hoveredComponent;
+
+                    if (targetComponent && targetComponent.classList.contains('component')) {
+                        const svg = targetComponent.querySelector('svg');
+                        if (!svg) return;
+
+                        let rotation = 0;
+                        const scale = parseFloat(targetComponent.dataset.scale) || 1;
+
+                        // 根据按键方向设置旋转角度
+                        if (e.key === 'ArrowUp') {
+                            rotation = 270;  // 朝向上
+                        } else if (e.key === 'ArrowDown') {
+                            rotation = 90;  // 朝向下
+                        } else if (e.key === 'ArrowRight') {
+                            rotation = 0;  // 朝向右
+                        } else if (e.key === 'ArrowLeft') {
+                            rotation = 180;  // 朝向左
                         }
-                    });
+
+                        e.preventDefault();
+                        targetComponent.dataset.rotation = rotation;
+                        svg.style.transform = `rotate(${rotation}deg) scale(${scale})`;
+
+                        // 更新所有连线位置
+                        wires.forEach(wire => {
+                            if (wire.start && wire.start.closest('.component') === targetComponent ||
+                                wire.end && wire.end.closest('.component') === targetComponent) {
+                                updateWirePosition(wire);
+                            }
+                        });
+                    }
                 }
             });
 
@@ -5872,59 +7127,47 @@
 
 
 
-            // 组件选择
+            // 组件选择 - 不显示选中框，只保留选中逻辑
             document.addEventListener('click', (e) => {
                 const component = e.target.closest('.component');
 
                 if (component) {
                     if (e.ctrlKey || e.metaKey) {
-                        toggleComponentSelection(component);
+                        // Ctrl+点击：切换选中
+                        if (selectedComponents.has(component)) {
+                            selectedComponents.delete(component);
+                            component.dataset.selected = 'false';
+                        } else {
+                            selectedComponents.add(component);
+                            component.dataset.selected = 'true';
+                        }
                     } else {
-                        clearSelection();
-                        selectComponent(component);
+                        // 普通点击：单选
+                        selectedComponents.clear();
+                        selectedComponents.add(component);
+                        component.dataset.selected = 'true';
                     }
                 } else {
-                    clearSelection();
+                    // 点击空白：清除选中
+                    selectedComponents.forEach(comp => {
+                        comp.dataset.selected = 'false';
+                    });
+                    selectedComponents.clear();
                 }
             });
 
-            // 选择组件
-            function selectComponent(component) {
-                selectedComponents.add(component);
-                component.style.outline = '2px solid #007bff';
-                component.style.outlineOffset = '2px';
-            }
-
-            // 切换选择
-            function toggleComponentSelection(component) {
-                if (selectedComponents.has(component)) {
-                    deselectComponent(component);
-                } else {
-                    selectComponent(component);
-                }
-            }
-
-            // 取消选择
-            function deselectComponent(component) {
-                selectedComponents.delete(component);
-                component.style.outline = '';
-                component.style.outlineOffset = '';
-            }
-
-            // 清除所有选择
-            function clearSelection() {
-                selectedComponents.forEach(comp => {
-                    comp.style.outline = '';
-                    comp.style.outlineOffset = '';
-                });
-                selectedComponents.clear();
-            }
-
             // 全选
             function selectAllComponents() {
-                clearSelection();
+                selectedComponents.forEach(comp => {
+                    comp.dataset.selected = 'false';
+                });
+                selectedComponents.clear();
+
                 const components = document.querySelectorAll('.component');
-                components.forEach(comp => selectComponent(comp));
+                components.forEach(comp => {
+                    selectedComponents.add(comp);
+                    comp.dataset.selected = 'true';
+                });
                 showToast(`已选择 ${components.length} 个组件`);
             }
 
@@ -5989,12 +7232,17 @@
                 pasteX = Math.max(20, Math.min(pasteX, canvasRect.width - 150));
                 pasteY = Math.max(20, Math.min(pasteY, canvasRect.height - 100));
 
-                clearSelection();
+                // 清除之前的选中
+                selectedComponents.forEach(comp => {
+                    comp.dataset.selected = 'false';
+                });
+                selectedComponents.clear();
 
                 clipboard.forEach((data, index) => {
                     const newComponent = createComponentFromData(data, pasteX + index * 30, pasteY + index * 30);
                     canvas.appendChild(newComponent);
-                    selectComponent(newComponent);
+                    selectedComponents.add(newComponent);
+                    newComponent.dataset.selected = 'true';
                 });
 
                 showToast(`已粘贴 ${clipboard.length} 个组件`);
@@ -6072,7 +7320,8 @@
                     component.remove();
                 });
 
-                clearSelection();
+                // 清除选中
+                selectedComponents.clear();
                 showToast(`已删除 ${count} 个组件`);
             }
 
@@ -6199,6 +7448,138 @@
                 return true;
             };
 
+            // 全局拖动和调整大小功能
+            window.makeDraggableAndResizable = function(element) {
+                const header = element.querySelector('.dialog-header');
+                const resizeHandle = element.querySelector('.resize-handle');
+
+                if (!header) return;
+
+                let isDragging = false;
+                let isResizing = false;
+                let startX = 0;
+                let startY = 0;
+                let elementX = 0;
+                let elementY = 0;
+                let elementWidth = 0;
+                let elementHeight = 0;
+
+                // 拖动功能
+                header.addEventListener('mousedown', dragStart);
+
+                function dragStart(e) {
+                    // 检查是否点击的是关闭按钮
+                    if (e.target.classList.contains('dialog-close')) {
+                        return;
+                    }
+
+                    isDragging = true;
+                    startX = e.clientX;
+                    startY = e.clientY;
+
+                    // 获取当前元素的位置
+                    const rect = element.getBoundingClientRect();
+                    elementX = rect.left;
+                    elementY = rect.top;
+
+                    header.style.cursor = 'grabbing';
+
+                    // 添加全局事件监听器
+                    document.addEventListener('mousemove', drag);
+                    document.addEventListener('mouseup', dragEnd);
+
+                    e.preventDefault();
+                }
+
+                function drag(e) {
+                    if (!isDragging) return;
+
+                    e.preventDefault();
+
+                    const deltaX = e.clientX - startX;
+                    const deltaY = e.clientY - startY;
+
+                    const newX = elementX + deltaX;
+                    const newY = elementY + deltaY;
+
+                    // 限制在视窗内
+                    const maxX = window.innerWidth - element.offsetWidth;
+                    const maxY = window.innerHeight - element.offsetHeight;
+
+                    const constrainedX = Math.max(0, Math.min(newX, maxX));
+                    const constrainedY = Math.max(0, Math.min(newY, maxY));
+
+                    element.style.left = constrainedX + 'px';
+                    element.style.top = constrainedY + 'px';
+                    element.style.transform = 'none'; // 清除居中的transform
+                }
+
+                function dragEnd(e) {
+                    isDragging = false;
+                    header.style.cursor = 'move';
+
+                    // 移除全局事件监听器
+                    document.removeEventListener('mousemove', drag);
+                    document.removeEventListener('mouseup', dragEnd);
+                }
+
+                // 调整大小功能
+                if (resizeHandle) {
+                    resizeHandle.addEventListener('mousedown', resizeStart);
+
+                    function resizeStart(e) {
+                        isResizing = true;
+                        startX = e.clientX;
+                        startY = e.clientY;
+
+                        // 获取当前元素的尺寸
+                        const rect = element.getBoundingClientRect();
+                        elementWidth = rect.width;
+                        elementHeight = rect.height;
+
+                        // 添加全局事件监听器
+                        document.addEventListener('mousemove', resize);
+                        document.addEventListener('mouseup', resizeEnd);
+
+                        e.preventDefault();
+                        e.stopPropagation();
+                    }
+
+                    function resize(e) {
+                        if (!isResizing) return;
+
+                        e.preventDefault();
+
+                        const deltaX = e.clientX - startX;
+                        const deltaY = e.clientY - startY;
+
+                        const newWidth = elementWidth + deltaX;
+                        const newHeight = elementHeight + deltaY;
+
+                        // 设置最小尺寸
+                        const minWidth = parseInt(element.style.minWidth) || 400;
+                        const minHeight = parseInt(element.style.minHeight) || 300;
+
+                        // 限制最大尺寸（不超过视窗）
+                        const maxWidth = window.innerWidth - parseInt(element.style.left || 0);
+                        const maxHeight = window.innerHeight - parseInt(element.style.top || 0);
+
+                        const constrainedWidth = Math.max(minWidth, Math.min(newWidth, maxWidth));
+                        const constrainedHeight = Math.max(minHeight, Math.min(newHeight, maxHeight));
+
+                        element.style.width = constrainedWidth + 'px';
+                        element.style.height = constrainedHeight + 'px';
+                    }
+
+                    function resizeEnd(e) {
+                        isResizing = false;
+
+                        // 移除全局事件监听器
+                        document.removeEventListener('mousemove', resize);
+                        document.removeEventListener('mouseup', resizeEnd);
+                    }
+                }
+            };
 
         });
     </script>

@@ -21,52 +21,64 @@ class MagneticSnap {
      * 创建磁吸指示器
      */
     createIndicators() {
-        // 网格磁吸指示器
-        this.gridIndicator = document.createElement('div');
-        this.gridIndicator.style.cssText = `
-            position: absolute;
-            width: 8px;
-            height: 8px;
-            background: #4CAF50;
-            border: 2px solid white;
-            border-radius: 50%;
-            pointer-events: none;
-            z-index: 1000;
-            display: none;
-            box-shadow: 0 0 4px rgba(76, 175, 80, 0.6);
-        `;
-        document.body.appendChild(this.gridIndicator);
+        // 禁用网格磁吸指示器创建
+        // this.gridIndicator = document.createElement('div');
+        // this.gridIndicator.style.cssText = `
+        //     position: absolute;
+        //     width: 8px;
+        //     height: 8px;
+        //     background: #4CAF50;
+        //     border: 2px solid white;
+        //     border-radius: 50%;
+        //     pointer-events: none;
+        //     z-index: 1000;
+        //     display: none;
+        //     box-shadow: 0 0 4px rgba(76, 175, 80, 0.6);
+        // `;
+        // document.body.appendChild(this.gridIndicator);
 
-        // 锚点磁吸指示器
-        this.anchorIndicator = document.createElement('div');
-        this.anchorIndicator.style.cssText = `
-            position: absolute;
-            width: 24px;
-            height: 24px;
-            background: rgba(255, 152, 0, 0.4);
-            border: 3px solid #FF9800;
-            border-radius: 50%;
-            pointer-events: none;
-            z-index: 1000;
-            display: none;
-            box-shadow: 0 0 12px rgba(255, 152, 0, 0.8);
-            animation: pulse 1s infinite;
-        `;
+        // 禁用锚点磁吸指示器创建
+        // this.anchorIndicator = document.createElement('div');
+        // this.anchorIndicator.style.cssText = `
+        //     position: absolute;
+        //     width: 24px;
+        //     height: 24px;
+        //     background: rgba(255, 152, 0, 0.3);
+        //     border: 2px solid #FF9800;
+        //     border-radius: 50%;
+        //     pointer-events: none;
+        //     z-index: 1000;
+        //     display: none;
+        //     box-shadow: 0 0 8px rgba(255, 152, 0, 0.6);
+        //     animation: pulse 1s infinite;
+        // `;
 
-        // 添加脉冲动画
-        if (!document.getElementById('magnetic-snap-styles')) {
-            const style = document.createElement('style');
-            style.id = 'magnetic-snap-styles';
-            style.textContent = `
-                @keyframes pulse {
-                    0% { transform: scale(1); opacity: 0.8; }
-                    50% { transform: scale(1.2); opacity: 1; }
-                    100% { transform: scale(1); opacity: 0.8; }
-                }
-            `;
-            document.head.appendChild(style);
-        }
-        document.body.appendChild(this.anchorIndicator);
+        // 禁用脉冲动画创建
+        // if (!document.getElementById('magnetic-snap-styles')) {
+        //     const style = document.createElement('style');
+        //     style.id = 'magnetic-snap-styles';
+        //     style.textContent = `
+        //         @keyframes pulse {
+        //             0% {
+        //                 transform: scale(1);
+        //                 opacity: 0.6;
+        //                 box-shadow: 0 0 8px rgba(255, 152, 0, 0.6);
+        //             }
+        //             50% {
+        //                 transform: scale(1.3);
+        //                 opacity: 1;
+        //                 box-shadow: 0 0 16px rgba(255, 152, 0, 0.8);
+        //             }
+        //             100% {
+        //                 transform: scale(1);
+        //                 opacity: 0.6;
+        //                 box-shadow: 0 0 8px rgba(255, 152, 0, 0.6);
+        //             }
+        //         }
+        //     `;
+        //     document.head.appendChild(style);
+        // }
+        // document.body.appendChild(this.anchorIndicator);
     }
 
     /**
@@ -226,32 +238,40 @@ class MagneticSnap {
      * 显示网格磁吸指示器
      */
     showGridIndicator(x, y) {
-        this.gridIndicator.style.left = (x - 6) + 'px';
-        this.gridIndicator.style.top = (y - 6) + 'px';
-        this.gridIndicator.style.display = 'block';
+        // 禁用绿色圆点指示器
+        // this.gridIndicator.style.left = (x - 6) + 'px';
+        // this.gridIndicator.style.top = (y - 6) + 'px';
+        // this.gridIndicator.style.display = 'block';
     }
 
     /**
      * 隐藏网格磁吸指示器
      */
     hideGridIndicator() {
-        this.gridIndicator.style.display = 'none';
+        // 禁用指示器隐藏
+        // if (this.gridIndicator) {
+        //     this.gridIndicator.style.display = 'none';
+        // }
     }
 
     /**
      * 显示锚点磁吸指示器
      */
     showAnchorIndicator(x, y) {
-        this.anchorIndicator.style.left = (x - 15) + 'px';
-        this.anchorIndicator.style.top = (y - 15) + 'px';
-        this.anchorIndicator.style.display = 'block';
+        // 禁用橙色圆圈指示器
+        // this.anchorIndicator.style.left = (x - 12) + 'px';
+        // this.anchorIndicator.style.top = (y - 12) + 'px';
+        // this.anchorIndicator.style.display = 'block';
     }
 
     /**
      * 隐藏锚点磁吸指示器
      */
     hideAnchorIndicator() {
-        this.anchorIndicator.style.display = 'none';
+        // 禁用指示器隐藏
+        // if (this.anchorIndicator) {
+        //     this.anchorIndicator.style.display = 'none';
+        // }
     }
 
     /**
@@ -293,12 +313,13 @@ class MagneticSnap {
      * 销毁磁吸功能，清理DOM元素
      */
     destroy() {
-        if (this.gridIndicator) {
-            this.gridIndicator.remove();
-        }
-        if (this.anchorIndicator) {
-            this.anchorIndicator.remove();
-        }
+        // 禁用指示器销毁（因为没有创建）
+        // if (this.gridIndicator) {
+        //     this.gridIndicator.remove();
+        // }
+        // if (this.anchorIndicator) {
+        //     this.anchorIndicator.remove();
+        // }
     }
 }
 

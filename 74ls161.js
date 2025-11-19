@@ -185,13 +185,13 @@ const ls161LogicFunction = {
 
 // 74LS161说明对话框HTML
 const ls161DialogHTML = `
-<div id="ls161-dialog" class="component-dialog" style="display: none;">
-    <div class="dialog-content">
-        <div class="dialog-header">
-            <h2>74LS161 4位同步二进制计数器</h2>
-            <button class="dialog-close" onclick="closeLs161Dialog()">&times;</button>
+<div id="ls161-dialog" class="component-dialog draggable-dialog resizable-dialog" style="display: none; position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%); z-index: 10000; width: 800px; height: 600px; min-width: 600px; min-height: 400px;">
+    <div class="dialog-content" style="width: 100%; height: 100%; background: white; border: 2px solid #333; border-radius: 8px; box-shadow: 0 4px 20px rgba(0,0,0,0.3); display: flex; flex-direction: column;">
+        <div class="dialog-header" style="background: #2196F3; color: white; padding: 15px 20px; border-radius: 6px 6px 0 0; cursor: move; user-select: none; display: flex; justify-content: space-between; align-items: center; flex-shrink: 0;">
+            <h2 style="margin: 0; font-size: 1.5em;">74LS161 4位同步二进制计数器</h2>
+            <button class="dialog-close" onclick="closeLs161Dialog()" style="background: none; border: none; color: white; font-size: 24px; cursor: pointer; width: 30px; height: 30px; display: flex; align-items: center; justify-content: center; border-radius: 50%;">&times;</button>
         </div>
-        <div class="dialog-body">
+        <div class="dialog-body" style="padding: 20px; overflow-y: auto; flex: 1;">
             <div class="dialog-section">
                 <h3>功能描述</h3>
                 <p>74LS161是一个4位同步二进制计数器，具有同步预置和异步清零功能。它可以进行0-15的二进制计数，并具有进位输出功能，可以级联使用构成更大的计数器。</p>
@@ -246,6 +246,8 @@ const ls161DialogHTML = `
                 </div>
             </div>
         </div>
+        <!-- 调整大小控制 -->
+        <div class="resize-handle" style="position: absolute; bottom: 0; right: 0; width: 20px; height: 20px; cursor: nw-resize; background: linear-gradient(-45deg, transparent 0%, transparent 30%, #ccc 30%, #ccc 40%, transparent 40%, transparent 60%, #ccc 60%, #ccc 70%, transparent 70%);"></div>
     </div>
 </div>
 `;
@@ -305,7 +307,7 @@ const ls161DialogCSS = `
 }
 
 .dialog-header {
-    background: #FF5722;
+    background: #2196F3;
     color: white;
     padding: 15px 20px;
     border-radius: 8px 8px 0 0;
@@ -348,8 +350,8 @@ const ls161DialogCSS = `
 }
 
 .dialog-section h3 {
-    color: #D84315;
-    border-bottom: 2px solid #FFEBE9;
+    color: #1976D2;
+    border-bottom: 2px solid #E3F2FD;
     padding-bottom: 5px;
     margin-bottom: 15px;
 }
@@ -421,6 +423,16 @@ function showLs161Dialog() {
             }
         };
         document.addEventListener('keydown', escHandler);
+
+        // 添加拖动和调整大小功能
+        if (typeof makeDraggableAndResizable === 'function') {
+            makeDraggableAndResizable(dialog);
+        } else if (typeof window.makeDraggableAndResizable === 'function') {
+            window.makeDraggableAndResizable(dialog);
+        } else {
+            // 如果全局函数不存在，使用本地实现
+            makeLS161DialogDraggableAndResizable(dialog);
+        }
     }
 }
 
@@ -429,6 +441,139 @@ function closeLs161Dialog() {
     const dialog = document.getElementById('ls161-dialog');
     if (dialog) {
         dialog.style.display = 'none';
+    }
+}
+
+// 74LS161对话框拖动和调整大小功能
+function makeLS161DialogDraggableAndResizable(element) {
+    const header = element.querySelector('.dialog-header');
+    const resizeHandle = element.querySelector('.resize-handle');
+
+    if (!header) return;
+
+    let isDragging = false;
+    let isResizing = false;
+    let startX = 0;
+    let startY = 0;
+    let elementX = 0;
+    let elementY = 0;
+    let elementWidth = 0;
+    let elementHeight = 0;
+
+    // 拖动功能
+    header.addEventListener('mousedown', dragStart);
+
+    function dragStart(e) {
+        // 检查是否点击的是关闭按钮
+        if (e.target.classList.contains('dialog-close')) {
+            return;
+        }
+
+        isDragging = true;
+        startX = e.clientX;
+        startY = e.clientY;
+
+        // 获取当前元素的位置
+        const rect = element.getBoundingClientRect();
+        elementX = rect.left;
+        elementY = rect.top;
+
+        header.style.cursor = 'grabbing';
+
+        // 添加全局事件监听器
+        document.addEventListener('mousemove', drag);
+        document.addEventListener('mouseup', dragEnd);
+
+        e.preventDefault();
+    }
+
+    function drag(e) {
+        if (!isDragging) return;
+
+        e.preventDefault();
+
+        const deltaX = e.clientX - startX;
+        const deltaY = e.clientY - startY;
+
+        const newX = elementX + deltaX;
+        const newY = elementY + deltaY;
+
+        // 限制在视窗内
+        const maxX = window.innerWidth - element.offsetWidth;
+        const maxY = window.innerHeight - element.offsetHeight;
+
+        const constrainedX = Math.max(0, Math.min(newX, maxX));
+        const constrainedY = Math.max(0, Math.min(newY, maxY));
+
+        element.style.left = constrainedX + 'px';
+        element.style.top = constrainedY + 'px';
+        element.style.transform = 'none'; // 清除居中的transform
+    }
+
+    function dragEnd(e) {
+        isDragging = false;
+        header.style.cursor = 'move';
+
+        // 移除全局事件监听器
+        document.removeEventListener('mousemove', drag);
+        document.removeEventListener('mouseup', dragEnd);
+    }
+
+    // 调整大小功能
+    if (resizeHandle) {
+        resizeHandle.addEventListener('mousedown', resizeStart);
+
+        function resizeStart(e) {
+            isResizing = true;
+            startX = e.clientX;
+            startY = e.clientY;
+
+            // 获取当前元素的尺寸
+            const rect = element.getBoundingClientRect();
+            elementWidth = rect.width;
+            elementHeight = rect.height;
+
+            // 添加全局事件监听器
+            document.addEventListener('mousemove', resize);
+            document.addEventListener('mouseup', resizeEnd);
+
+            e.preventDefault();
+            e.stopPropagation();
+        }
+
+        function resize(e) {
+            if (!isResizing) return;
+
+            e.preventDefault();
+
+            const deltaX = e.clientX - startX;
+            const deltaY = e.clientY - startY;
+
+            const newWidth = elementWidth + deltaX;
+            const newHeight = elementHeight + deltaY;
+
+            // 设置最小尺寸
+            const minWidth = 600;
+            const minHeight = 400;
+
+            // 限制最大尺寸（不超过视窗）
+            const maxWidth = window.innerWidth - parseInt(element.style.left || 0);
+            const maxHeight = window.innerHeight - parseInt(element.style.top || 0);
+
+            const constrainedWidth = Math.max(minWidth, Math.min(newWidth, maxWidth));
+            const constrainedHeight = Math.max(minHeight, Math.min(newHeight, maxHeight));
+
+            element.style.width = constrainedWidth + 'px';
+            element.style.height = constrainedHeight + 'px';
+        }
+
+        function resizeEnd(e) {
+            isResizing = false;
+
+            // 移除全局事件监听器
+            document.removeEventListener('mousemove', resize);
+            document.removeEventListener('mouseup', resizeEnd);
+        }
     }
 }
 
